@@ -86,7 +86,7 @@ func _move_toward(d: Vector2) -> void:
 	# El embrague manda: sin pisarlo no entra una marcha nueva.
 	var col_i := roundi(k.x)
 	var target: int = GATES.get(Vector2i(col_i, int(signf(k.y))), 0)
-	if absf(k.y) > 0.45 and target != _current_gear() and controls and controls.clutch < 0.6:
+	if absf(k.y) > 0.45 and target != _current_gear() and controls and controls.clutch_enabled and controls.clutch < 0.6:
 		k.y = signf(k.y) * 0.45
 		grinding = 0.4
 	knob = k

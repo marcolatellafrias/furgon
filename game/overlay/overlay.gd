@@ -118,7 +118,7 @@ func add_surface(s: ItemSurface) -> ItemSurface:
 
 func grabbable_at(p: Vector2, hand: Hand) -> Grabbable:
 	for g in grabbables():
-		if g.hit_test(p) and g.can_grab(hand):
+		if g.is_visible_in_tree() and g.hit_test(p) and g.can_grab(hand):
 			return g
 	return null
 

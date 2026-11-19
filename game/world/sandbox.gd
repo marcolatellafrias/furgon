@@ -87,7 +87,15 @@ func _selftest() -> void:
 		print("[selftest] %s  t=%.1f motor=%s marcha=%s rpm=%d vel=%.1f km/h pos=%s" % [
 			tag, Time.get_ticks_msec() / 1000.0, van.engine_on, van.controls.gear,
 			van.rpm, van.speed_kmh, van.global_position.snapped(Vector3.ONE * 0.1)])
-	f["clutch"] = 1.0; f["throttle"] = 0.0; f["brake"] = 0.0
+	f["clutch"] = 0.0; f["throttle"] = 0.0; f["brake"] = 0.0
+	# Sin embrague: la palanca real tiene que dejar meter 1ra con el mouse
+	var gl := cabin.gear_lever
+	var g0 := gl.global_position
+	_mouse(g0, true)
+	_mouse(g0 + Vector3(-gl.step, 0, 0), true, true)
+	_mouse(g0 + Vector3(-gl.step, gl.step, 0), true, true)
+	_mouse(g0 + Vector3(-gl.step, gl.step, 0), false)
+	print("[selftest] marcha con la palanca, sin embrague: ", van.controls.gear)
 	await _wait(0.5)
 	_mouse(cabin.key.global_position, true)   # clic real en la llave
 	_mouse(cabin.key.global_position, false)

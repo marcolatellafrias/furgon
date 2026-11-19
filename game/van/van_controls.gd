@@ -8,6 +8,9 @@ extends Resource
 @export_range(0.0, 1.0) var throttle := 0.0
 @export_range(0.0, 1.0) var brake := 0.0
 @export_range(0.0, 1.0) var clutch := 0.0     ## 1 = pisado a fondo (motor desacoplado)
+## false = embrague automático: no hay pedal, los cambios entran solos y el motor no se para.
+## Así la van se maneja de a uno. Ponerlo en true para el modo "manual" cooperativo.
+@export var clutch_enabled := false
 @export_range(-1, 4) var gear := 0            ## -1 R, 0 N, 1..4
 
 ## Cada giro de llave suma 1. La van compara con el último que vio:

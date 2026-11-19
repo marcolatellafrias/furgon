@@ -137,16 +137,21 @@ func _physics_process(delta: float) -> void:
 
 	var ratio: float = RATIOS[c.gear] * final_drive
 	var engagement := 0.0 if c.gear == 0 else 1.0 - clampf(c.clutch, 0.0, 1.0)
+	# Embrague automático: a poca velocidad el motor "patina" (rpm libres), después acopla.
+	var rpm_engagement := engagement
+	if not c.clutch_enabled and c.gear != 0:
+		engagement = 1.0
+		rpm_engagement = clampf(wheel_rpm_for(fwd_speed, ratio) / (idle_rpm * 2.0), 0.0, 1.0)
 	# rpm que tendría el motor si estuviera acoplado del todo a las ruedas
 	var wheel_rpm := fwd_speed / (TAU * wheel_radius) * 60.0 * ratio
 
 	var force := 0.0
 	if engine_on:
 		var free_rpm := idle_rpm + c.throttle * (max_rpm - idle_rpm)
-		var target_rpm := lerpf(free_rpm, maxf(wheel_rpm, idle_rpm * 0.5), engagement)
+		var target_rpm := lerpf(free_rpm, maxf(wheel_rpm, idle_rpm * 0.5), rpm_engagement)
 		rpm = move_toward(rpm, target_rpm, 7000.0 * delta)
 
-		if stall_enabled and engagement > 0.85 and wheel_rpm < 350.0 and c.throttle < 0.15:
+		if stall_enabled and c.clutch_enabled and engagement > 0.85 and wheel_rpm < 350.0 and c.throttle < 0.15:
 			_stop_engine("¡Se paró el motor!")
 		elif c.gear != 0:
 			var torque := c.throttle * max_torque * _torque_curve(rpm)
@@ -174,7 +179,7 @@ func _update_ignition(delta: float) -> void:
 		if engine_on or cranking:
 			cranking = false
 			_stop_engine("Motor apagado")
-		elif controls.gear != 0 and controls.clutch < 0.6:
+		elif controls.clutch_enabled and controls.gear != 0 and controls.clutch < 0.6:
 			last_message = "Pisá el embrague o poné punto muerto"
 		else:
 			cranking = true
@@ -195,6 +200,9 @@ func _stop_engine(reason: String) -> void:
 	engine_on = false
 	last_message = reason
 	engine_stopped.emit(reason)
+
+func wheel_rpm_for(fwd_speed: float, ratio: float) -> float:
+	return fwd_speed / (TAU * wheel_radius) * 60.0 * ratio
 
 func _torque_curve(r: float) -> float:
 	var t := clampf(r / max_rpm, 0.0, 1.0)

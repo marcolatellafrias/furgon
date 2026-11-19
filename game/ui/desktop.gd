@@ -120,7 +120,7 @@ func _process(_delta: float) -> void:
 func _space_hint() -> String:
 	match local.space:
 		"cabin":
-			return "W/S/Espacio: pedales (solo conductor) · clic en el piso: bajarse" if local.character.seat == van.driver_seat \
+			return "W: acelerar · S: frenar (solo conductor) · clic en el piso: bajarse" if local.character.seat == van.driver_seat \
 				else "acompañante: usá las manos · clic en el piso: bajarse"
 		"cargo":
 			return "arrastrá paquetes · clic en el piso: irte"

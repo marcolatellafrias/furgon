@@ -84,6 +84,8 @@ func build() -> void:
 		p.position = Vector3(x, -4.3, 0)
 		root3d.add_child(p)
 		pedals[spec[0]] = p
+		if spec[0] == "clutch" and not c.clutch_enabled:
+			p.visible = false   # embrague automático: no hay pedal
 		x += 0.75
 
 	# Guantera (todavía no se abre)
