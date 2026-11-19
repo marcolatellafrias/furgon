@@ -11,6 +11,9 @@ extends Resource
 ## false = embrague automático: no hay pedal, los cambios entran solos y el motor no se para.
 ## Así la van se maneja de a uno. Ponerlo en true para el modo "manual" cooperativo.
 @export var clutch_enabled := false
+## true = no hay acelerador: cada marcha tiene una velocidad y la van va sola a esa velocidad
+## (ver Van.gear_speeds_kmh). false = acelerador manual con el pedal.
+@export var gear_sets_speed := true
 @export_range(-1, 4) var gear := 0            ## -1 R, 0 N, 1..4
 
 ## Cada giro de llave suma 1. La van compara con el último que vio:

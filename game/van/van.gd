@@ -25,6 +25,9 @@ signal engine_stopped(reason: String)
 @export var front_grip := 2.2
 @export var rear_grip := 2.0
 
+## Velocidad a la que va la van en cada marcha cuando gear_sets_speed está activo.
+@export var gear_speeds_kmh := {-1: 8.0, 1: 12.0, 2: 25.0, 3: 40.0, 4: 60.0}
+
 const RATIOS := {-1: -3.6, 0: 0.0, 1: 3.8, 2: 2.3, 3: 1.5, 4: 1.0}
 
 ## Telemetría (solo lectura para el tablero)
@@ -147,6 +150,15 @@ func _zone(size: Vector3, pos: Vector3) -> Area3D:
 
 func _physics_process(delta: float) -> void:
 	var c := controls
+	var throttle := c.throttle
+	var auto_brake := 0.0
+	if c.gear_sets_speed:
+		# La marcha dicta la velocidad: acelera hasta llegar y frena suave si se pasa.
+		var target: float = gear_speeds_kmh.get(c.gear, 0.0)
+		var speed_in_gear := linear_velocity.dot(global_basis.z) * 3.6 * (-1.0 if c.gear == -1 else 1.0)
+		if c.gear != 0:
+			throttle = clampf((target - speed_in_gear) / 6.0, 0.0, 1.0) * (1.0 - clampf(c.brake * 2.0, 0.0, 1.0))
+			auto_brake = clampf((speed_in_gear - target - 2.0) / 12.0, 0.0, 0.35)
 	var accel := (linear_velocity - _prev_velocity) / delta
 	_prev_velocity = linear_velocity
 	local_accel = local_accel.lerp(global_basis.inverse() * accel, 0.25)
@@ -167,17 +179,17 @@ func _physics_process(delta: float) -> void:
 
 	var force := 0.0
 	if engine_on:
-		var free_rpm := idle_rpm + c.throttle * (max_rpm - idle_rpm)
+		var free_rpm := idle_rpm + throttle * (max_rpm - idle_rpm)
 		var target_rpm := lerpf(free_rpm, maxf(wheel_rpm, idle_rpm * 0.5), rpm_engagement)
 		rpm = move_toward(rpm, target_rpm, 7000.0 * delta)
 
-		if stall_enabled and c.clutch_enabled and engagement > 0.85 and wheel_rpm < 350.0 and c.throttle < 0.15:
+		if stall_enabled and c.clutch_enabled and engagement > 0.85 and wheel_rpm < 350.0 and throttle < 0.15:
 			_stop_engine("¡Se paró el motor!")
 		elif c.gear != 0:
-			var torque := c.throttle * max_torque * _torque_curve(rpm)
+			var torque := throttle * max_torque * _torque_curve(rpm)
 			if rpm >= max_rpm:
 				torque = 0.0
-			if c.throttle < 0.05:
+			if throttle < 0.05:
 				torque = -engine_brake_torque * clampf(rpm / max_rpm, 0.0, 1.0)
 			force = torque * ratio / wheel_radius * engagement
 	elif not cranking:
@@ -185,7 +197,7 @@ func _physics_process(delta: float) -> void:
 
 	var steer_rad := -c.steer * deg_to_rad(max_steer_deg)  # steering positivo = izquierda
 	# Sin nadie al volante, freno de mano puesto (por ahora automático).
-	var brake := c.brake if seat_occupant.get(driver_seat) != null else 1.0
+	var brake := maxf(c.brake, auto_brake) if seat_occupant.get(driver_seat) != null else 1.0
 	for w in _front_wheels:
 		w.steering = steer_rad
 		w.brake = brake * max_brake
