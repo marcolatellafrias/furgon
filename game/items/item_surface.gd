@@ -1,10 +1,12 @@
 class_name ItemSurface
 extends Node3D
-## Superficie de un overlay donde se apoyan ítems (tablero, piso de la caja…).
-## Por ahora "gravedad" simple: cada ítem cae sobre lo que tenga abajo. Si no entra, no se acepta.
-## Coordenadas en el espacio local del overlay (root3d), con profundidad fija z.
+## Superficie de un overlay donde viven ítems con física 2D (tablero, caja de atrás…).
+## Paredes, piso y techo son cuerpos estáticos. La física corre en el mundo 2D del
+## SubViewport del overlay: 1 unidad de overlay = 100 px; en 2D la Y va hacia abajo.
 
 signal changed
+
+const PX := 100.0
 
 @export var x_min := -4.0
 @export var x_max := 4.0
@@ -13,6 +15,41 @@ signal changed
 @export var z := 0.0
 
 var overlay: Overlay
+var physics_root: Node2D
+
+static func to_px(l: Vector2) -> Vector2:
+	return Vector2(l.x, -l.y) * PX
+
+static func from_px(p: Vector2) -> Vector2:
+	return Vector2(p.x, -p.y) / PX
+
+func _ready() -> void:
+	physics_root = Node2D.new()
+	physics_root.name = "Fisica_" + name
+	overlay.viewport.add_child(physics_root)
+	var walls := StaticBody2D.new()
+	physics_root.add_child(walls)
+	var t := 6.0  # grosor de las paredes, en unidades (gruesas para que nada las atraviese)
+	var w := x_max - x_min
+	var h := ceiling_y - floor_y
+	var cx := (x_min + x_max) * 0.5
+	var cy := (floor_y + ceiling_y) * 0.5
+	_wall(walls, Vector2(cx, floor_y - t * 0.5), Vector2(w + t * 2, t))     # piso
+	_wall(walls, Vector2(cx, ceiling_y + t * 0.5), Vector2(w + t * 2, t))   # techo
+	_wall(walls, Vector2(x_min - t * 0.5, cy), Vector2(t, h + t * 2))      # izquierda
+	_wall(walls, Vector2(x_max + t * 0.5, cy), Vector2(t, h + t * 2))      # derecha
+
+func _wall(b: StaticBody2D, center: Vector2, size: Vector2) -> void:
+	var col := CollisionShape2D.new()
+	var r := RectangleShape2D.new()
+	r.size = size * PX
+	col.shape = r
+	col.position = to_px(center)
+	b.add_child(col)
+
+func _exit_tree() -> void:
+	if is_instance_valid(physics_root):
+		physics_root.queue_free()
 
 func items() -> Array[ItemNode]:
 	var out: Array[ItemNode] = []
@@ -21,58 +58,41 @@ func items() -> Array[ItemNode]:
 			out.append(c)
 	return out
 
-## ¿El punto (en el plano de pantalla del overlay) cae sobre esta superficie?
-func contains(plane_p: Vector2) -> bool:
-	var l := overlay.plane_to_local(plane_p, z)
-	return l.x >= x_min - 0.3 and l.x <= x_max + 0.3 and l.y >= floor_y - 0.6 and l.y <= ceiling_y + 0.3
+## Punto del plano de pantalla del overlay → coordenadas locales de esta superficie.
+func local_at(plane_p: Vector2) -> Vector2:
+	return overlay.plane_to_local(plane_p, z)
 
-func try_place(data: ItemData, plane_p: Vector2) -> bool:
-	return place_at_local_x(data, overlay.plane_to_local(plane_p, z).x)
+## ¿El punto cae dentro del espacio físico de esta superficie? margin agranda la zona
+## (para que tirar algo con fuerza no lo saque del overlay sin querer).
+func contains(plane_p: Vector2, margin := 0.2) -> bool:
+	var l := local_at(plane_p)
+	return l.x >= x_min - margin and l.x <= x_max + margin 		and l.y >= floor_y - 0.5 - margin and l.y <= ceiling_y + margin
 
-func place_at_local_x(data: ItemData, x: float, force := false) -> bool:
-	var w := data.size.x
-	x = clampf(x, x_min + w * 0.5, x_max - w * 0.5)
-	var bottom := _support(x, w, null)
-	if not force and bottom + data.size.y > ceiling_y:
-		return false
+## Crea el ítem con física en ese punto (local). Siempre entra: la física lo acomoda.
+func spawn(data: ItemData, local_pos: Vector2, velocity := Vector2.ZERO) -> ItemNode:
+	var half := data.size * 0.5
+	local_pos.x = clampf(local_pos.x, x_min + half.x, x_max - half.x)
+	local_pos.y = clampf(local_pos.y, floor_y + half.y, ceiling_y - half.y)
 	var n := ItemNode.new()
-	n.setup(data)
-	n.surface = self
 	add_child(n)
-	n.position = Vector3(x, bottom + data.size.y * 0.5, z)
+	n.setup(data, self)
+	n.body.position = to_px(local_pos)
+	n.body.linear_velocity = Vector2(velocity.x, -velocity.y) * PX
+	n.position = Vector3(local_pos.x, local_pos.y, z)
 	changed.emit()
-	return true
+	return n
 
-## Saca un ítem (porque una mano lo agarró). Lo que estaba arriba cae.
+## Saca un ítem del overlay (porque se fue arrastrando a otro lado).
 func take(n: ItemNode) -> ItemData:
 	remove_child(n)
 	n.queue_free()
-	settle()
 	changed.emit()
 	return n.data
-
-func settle() -> void:
-	var list := items()
-	list.sort_custom(func(a: ItemNode, b: ItemNode) -> bool:
-		return a.position.y - a.data.size.y * 0.5 < b.position.y - b.data.size.y * 0.5)
-	var placed: Array[ItemNode] = []
-	for n in list:
-		var bottom := _support(n.position.x, n.data.size.x, placed)
-		n.position.y = bottom + n.data.size.y * 0.5
-		placed.append(n)
-
-## Altura del apoyo más alto debajo del rango [x - w/2, x + w/2].
-func _support(x: float, w: float, among) -> float:
-	var top := floor_y
-	var list: Array = items() if among == null else among
-	for n: ItemNode in list:
-		if absf(n.position.x - x) < (n.data.size.x + w) * 0.5 - 0.02:
-			top = maxf(top, n.position.y + n.data.size.y * 0.5)
-	return top
 
 ## Para mostrar el contenido en otro lado (ej. la caja de la van en el mundo 3D).
 func snapshot() -> Array:
 	var out := []
 	for n in items():
-		out.append({"data": n.data, "x": n.position.x, "y": n.position.y})
+		var l := n.local_center()
+		out.append({"data": n.data, "x": l.x, "y": l.y, "rot": n.rotation.z})
 	return out

@@ -46,6 +46,11 @@ const LAYER_ZONES := 3
 const BASE_MASS := 1800.0
 var cargo_weight := 0.0
 var _cargo_visual: Node3D
+var _cargo_nodes := {}            ## ItemData -> Node3D
+## Aceleración que siente la van, en su espacio local (m/s²). La usan los overlays
+## para que los objetos se deslicen al acelerar, frenar o doblar.
+var local_accel := Vector3.ZERO
+var _prev_velocity := Vector3.ZERO
 
 var _front_wheels: Array[VehicleWheel3D] = []
 var _rear_wheels: Array[VehicleWheel3D] = []
@@ -93,22 +98,34 @@ func occupied_seats() -> int:
 const CARGO_SCALE := 0.36            ## unidades de overlay → metros
 const CARGO_OVERLAY_FLOOR := -4.5
 func set_cargo(entries: Array) -> void:
-	for c in _cargo_visual.get_children():
-		c.queue_free()
+	var seen := {}
 	cargo_weight = 0.0
 	var moment := 0.0
 	for e in entries:
 		var d: ItemData = e.data
-		var v := d.make_visual()
-		v.scale = Vector3.ONE * CARGO_SCALE
+		seen[d] = true
+		var pivot: Node3D = _cargo_nodes.get(d)
+		if pivot == null:
+			# pivot girado 90°: su +X local apunta a la puerta de atrás (-Z de la van)
+			pivot = Node3D.new()
+			pivot.rotation_degrees.y = 90
+			var v := d.make_visual()
+			v.name = "V"
+			v.scale = Vector3.ONE * CARGO_SCALE
+			pivot.add_child(v)
+			_cargo_visual.add_child(pivot)
+			_cargo_nodes[d] = pivot
 		# x del overlay: izquierda = fondo (pegado a la cabina), derecha = puerta de atrás
 		var z: float = 0.63 - (float(e.x) + 4.35) * CARGO_SCALE
 		var y: float = 0.85 + (float(e.y) - CARGO_OVERLAY_FLOOR) * CARGO_SCALE
-		v.position = Vector3(0, y, z)
-		v.rotation_degrees.y = 90   # en el overlay se ve de costado
-		_cargo_visual.add_child(v)
+		pivot.position = Vector3(0, y, z)
+		(pivot.get_node("V") as Node3D).rotation.z = e.rot
 		cargo_weight += d.weight
 		moment += d.weight * z
+	for d in _cargo_nodes.keys():
+		if not seen.has(d):
+			_cargo_nodes[d].queue_free()
+			_cargo_nodes.erase(d)
 	mass = BASE_MASS + cargo_weight
 	center_of_mass.z = moment / mass
 
@@ -130,6 +147,9 @@ func _zone(size: Vector3, pos: Vector3) -> Area3D:
 
 func _physics_process(delta: float) -> void:
 	var c := controls
+	var accel := (linear_velocity - _prev_velocity) / delta
+	_prev_velocity = linear_velocity
+	local_accel = local_accel.lerp(global_basis.inverse() * accel, 0.25)
 	var fwd_speed := linear_velocity.dot(global_basis.z)
 	speed_kmh = absf(fwd_speed) * 3.6
 

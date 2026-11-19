@@ -4,7 +4,7 @@ extends Overlay
 ## Abajo: tablero (volante, llave, instrumentos, palanca, pedales, guantera).
 ## Arriba: espejo retrovisor, que muestra el mundo real desde atrás de la van.
 ##
-## Pies = teclado (W acelerador, S freno, Espacio embrague). Manos = mouse.
+## Todo se maneja con las manos (mouse). Nada del tablero se usa con teclado.
 
 var van: Van
 
@@ -13,10 +13,8 @@ var gear_lever: GearLeverControl
 var key: IgnitionKeyControl
 var pedals := {}   # property -> PedalControl
 
-## Si tiene entradas, reemplaza al teclado (lo usa el autotest).
+## Solo para el autotest: fuerza el valor de pedales sin usar el mouse.
 var feet_override := {}
-## Los pies (teclado) solo llegan a los pedales desde el asiento del conductor.
-var feet_enabled := true
 var dash_surface: ItemSurface
 
 var _speed_label: Label3D
@@ -142,11 +140,8 @@ func _process(delta: float) -> void:
 		return
 	_mirror_cam.global_transform = van.mirror_anchor.global_transform
 
-	# Pies
-	var f := feet_enabled
-	_feet("throttle", f and Input.is_physical_key_pressed(KEY_W), delta, 3.0)
-	_feet("brake", f and Input.is_physical_key_pressed(KEY_S), delta, 5.0)
-	_feet("clutch", f and Input.is_physical_key_pressed(KEY_SPACE), delta, 6.0)
+	for prop in pedals:
+		(pedals[prop] as PedalControl).foot_value = feet_override.get(prop, 0.0)
 
 	# Tablero
 	_speed_label.text = "%d km/h" % roundi(van.speed_kmh)
@@ -167,10 +162,3 @@ func _process(delta: float) -> void:
 		_msg_label.text = "¡CRRRK! Pisá el embrague"
 	else:
 		_msg_label.text = van.last_message
-
-func _feet(prop: String, pressed: bool, delta: float, speed: float) -> void:
-	var p: PedalControl = pedals[prop]
-	if feet_override.has(prop):
-		p.foot_value = feet_override[prop]
-	else:
-		p.foot_value = move_toward(p.foot_value, 1.0 if pressed else 0.0, speed * delta)

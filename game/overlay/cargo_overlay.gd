@@ -35,3 +35,8 @@ func build() -> void:
 	surface.ceiling_y = -1.15
 	surface.z = -0.8
 	surface.changed.connect(func() -> void: van.set_cargo(surface.snapshot()))
+
+func _physics_process(_delta: float) -> void:
+	# Los paquetes se mueven con la física: la van los muestra donde están.
+	if surface and Engine.get_physics_frames() % 3 == 0:
+		van.set_cargo(surface.snapshot())

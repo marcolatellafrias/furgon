@@ -52,8 +52,15 @@ se intenta expresar con estas.
   (agarrar, mover, soltar). Así single player y multijugador usan el mismo código.
 
 ## Decisiones tomadas (provisorias)
-- **Pies = teclado, manos = mouse.** Los pies (W/S/Espacio) solo llegan a los pedales desde el asiento
-  del conductor. El acompañante puede pisar pedales "con la mano" (arrastrándolos) → cooperativo.
+- **Todo se maneja con el mouse.** Nada del tablero se usa con teclado (los pedales se arrastran).
+  Embrague automático por ahora (`VanControls.clutch_enabled = false`).
+- **E = salir del espacio** (bajarse de la cabina / irse de la caja). Dentro de un espacio, hacer clic
+  en el mundo no te saca; solo abre ventanas de personajes.
+- **Física de los ítems: agarrado no tiene física, suelto sí**, con la velocidad con que lo soltaste
+  (se puede tirar, rebota, se da vuelta, se agarra en el aire). La aceleración de la van empuja los
+  ítems: doblar en el tablero, acelerar/frenar en la caja.
+- Un ítem agarrado que sale del overlay (hacia una ventana o un personaje) pasa a "arrastre universal";
+  si vuelve a entrar, vuelve a ser físico.
 - **La caja de atrás es overlay** (espacio compartido: los dos pueden acomodar a la vez). Se ve de costado.
 - **Con un overlay abierto, la cámara del mundo se corre** para que tu personaje quede en la zona libre.
 - **Arrastrar sobre un personaje del mundo abre su ventana** (como pasar un archivo sobre la barra de tareas).

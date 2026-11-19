@@ -117,6 +117,7 @@ func _selftest() -> void:
 	f["clutch"] = 0.0; f["throttle"] = 0.9
 	await _wait(1.5)
 	log.call("en 2da")
+	var dash_x_before := _dash_xs()
 	# Arrastre real del volante: agarrar arriba y girar en sentido horario.
 	var c := cabin.wheel.global_position
 	var r := cabin.wheel.radius
@@ -129,6 +130,7 @@ func _selftest() -> void:
 	print("[selftest] volante: %.0f°  steer=%.2f" % [rad_to_deg(cabin.wheel.angle), van.controls.steer])
 	await _wait(0.8)
 	log.call("doblando a la derecha")
+	print("[selftest] inercia al doblar a la derecha, x en el tablero: ", dash_x_before, " -> ", _dash_xs())
 	_shot("1_manejando")
 	f["throttle"] = 0.0; f["brake"] = 1.0; f["clutch"] = 1.0
 	await _wait(2.5)
@@ -174,7 +176,36 @@ func _selftest_interaction() -> void:
 	_shot("2_comer_y_mano_j2")
 	cabin.hand_release(p2.hand, p2.hand.pos)
 
-	# 3) Bajarse y caminar a la caja de atrás
+	# 3) Tirar la gaseosa para arriba: tiene que volar, girar y caer (no volver a su lugar)
+	var can: ItemNode = null
+	for n in cabin.dash_surface.items():
+		if n.data.display_name == "Gaseosa":
+			can = n
+	var c0 := can.local_center()
+	var s0 := cabin.camera.unproject_position(can.global_position)
+	_mouse_screen(s0, true)
+	for i in 4:
+		await get_tree().physics_frame
+		_mouse_screen(s0 + Vector2(-12, -30) * (i + 1), true, true)
+	await get_tree().physics_frame
+	_mouse_screen(s0 + Vector2(-48, -120), false)
+	await get_tree().physics_frame
+	print("[selftest] gaseosa tirada: vel=%s" % can.body.linear_velocity.round())
+	await _wait(0.25)
+	_shot("2b_gaseosa_volando")
+	await _wait(1.5)
+	print("[selftest] gaseosa: antes %s -> ahora %s, rotación %.0f°" % [c0, can.local_center(), rad_to_deg(can.rotation.z)])
+
+	# 4) Clic en el piso NO te baja; E sí. Después caminar a la caja de atrás
+	_mouse_screen(desktop.world_camera.unproject_position(van.to_global(Vector3(5, 0, 0))), true)
+	_mouse_screen(Vector2.ZERO, false)
+	await _wait(0.3)
+	print("[selftest] clic en el piso desde la cabina -> espacio='%s' (tiene que seguir 'cabin')" % p1.space)
+	var ek := InputEventKey.new()
+	ek.physical_keycode = KEY_E
+	ek.pressed = true
+	Input.parse_input_event(ek)
+	await _wait(0.2)
 	_mouse_screen(desktop.world_camera.unproject_position(van.to_global(Vector3(5, 0, 0))), true)
 	_mouse_screen(Vector2.ZERO, false)
 	await _wait(2.0)
@@ -212,6 +243,12 @@ func _selftest_interaction() -> void:
 	await _wait(0.3)
 	print("[selftest] mano: %s ; paquetes en caja: %d" % [
 		ch.held_item.display_name if ch.held_item else "vacía", desktop.cargo.surface.items().size()])
+
+func _dash_xs() -> Array:
+	var out := []
+	for n in cabin.dash_surface.items():
+		out.append(n.local_center().snapped(Vector2(0.01, 0.01)))
+	return out
 
 func _shot(tag: String) -> void:
 	var base := "user://selftest"

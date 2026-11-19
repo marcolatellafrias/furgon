@@ -6,8 +6,6 @@ extends CanvasLayer
 ## Regla: el overlay nunca tapa todo el mundo (fondo transparente, ocupa bordes).
 ## El input lo reparte el Desktop: el overlay solo sabe qué hay bajo una mano.
 
-signal item_grab_requested(node: ItemNode, hand: Hand)
-
 const VIEW_HEIGHT := 10.0  ## alto visible en unidades: Y va de -5 (abajo) a +5 (arriba)
 
 ## Proyección oblicua ("vista 3/4"): la cara de frente queda plana y sin deformar, y lo que
@@ -129,9 +127,6 @@ func hand_press(hand: Hand, p: Vector2) -> bool:
 	var g := grabbable_at(p, hand)
 	if g == null:
 		return false
-	if g is ItemNode:
-		item_grab_requested.emit(g, hand)  # los ítems se arrastran, no se "sostienen" acá
-		return true
 	hand.held = g
 	g.held_by = hand
 	g.on_grab(hand, p)
@@ -153,6 +148,17 @@ func hand_release(hand: Hand, p: Vector2) -> bool:
 	g.held_by = null
 	g.on_release(hand, p)
 	return true
+
+## Inercia: la van acelera/frena/dobla → los ítems del overlay sienten una "gravedad" inclinada.
+## lateral = aceleración (m/s²) en la dirección +X de pantalla que sienten los objetos.
+const GRAVITY_PX := 2500.0
+const INERTIA_GAIN := 1.6
+func set_inertia(lateral: float, vertical: float) -> void:
+	# Limitado: un golpe de suspensión no puede volverse una gravedad absurda.
+	var g := Vector2(clampf(lateral / 9.8 * INERTIA_GAIN, -1.2, 1.2), clampf(1.0 + vertical / 9.8, 0.4, 1.8))
+	var space := viewport.world_2d.space
+	PhysicsServer2D.area_set_param(space, PhysicsServer2D.AREA_PARAM_GRAVITY_VECTOR, g.normalized())
+	PhysicsServer2D.area_set_param(space, PhysicsServer2D.AREA_PARAM_GRAVITY, GRAVITY_PX * g.length())
 
 ## Si una mano se va del espacio, suelta lo que tenía.
 func release_all(hand: Hand) -> void:

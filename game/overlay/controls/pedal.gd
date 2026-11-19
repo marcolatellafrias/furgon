@@ -1,7 +1,7 @@
 class_name PedalControl
 extends Grabbable
-## Pedal. Se pisa con el pie (teclado) o agarrándolo y arrastrando hacia abajo.
-## Valor final = el mayor entre pie y mano. Al soltar vuelve solo.
+## Pedal. Se pisa agarrándolo y arrastrando hacia abajo. Al soltar vuelve solo.
+## (foot_value lo usa solo el autotest.)
 
 @export var property := "throttle"   ## campo de VanControls que escribe
 @export var travel := 0.8

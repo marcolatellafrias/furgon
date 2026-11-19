@@ -7,6 +7,8 @@ extends Node
 ## Si pasás arrastrando sobre una entidad del mundo, se abre su ventana (como la barra de tareas).
 ## Si nadie lo acepta, el ítem vuelve a donde estaba.
 ##
+## E = salir del espacio (bajarse de la cabina / irse de la caja). Mientras estás en un espacio,
+## hacer clic en el mundo no te saca (solo se pueden abrir ventanas de personajes).
 ## Debug: F2 cambia de jugador (hot-seat) para probar el cooperativo con un solo mouse.
 
 static var instance: Desktop
@@ -38,8 +40,6 @@ func setup(p_van: Van, p_camera: Camera3D, world: Node3D) -> void:
 	cargo.van = van
 	cargo.space_id = "cargo"
 	add_child(cargo)
-	for ov: Overlay in [cabin, cargo]:
-		ov.item_grab_requested.connect(_on_item_grab_requested)
 
 	windows = WindowManager.new()
 	add_child(windows)
@@ -73,9 +73,10 @@ func setup(p_van: Van, p_camera: Camera3D, world: Node3D) -> void:
 		_enter_cabin(p)
 	local = players[0]
 
-	# Cosas iniciales
-	cabin.dash_surface.place_at_local_x(ItemData.make_food("Empanada", "round", Vector2(0.9, 0.45), Color(0.85, 0.6, 0.3), 30), 1.0)
-	cabin.dash_surface.place_at_local_x(ItemData.make_food("Gaseosa", "can", Vector2(0.4, 0.75), Color(0.75, 0.1, 0.1), 10), 2.0)
+	# Cosas iniciales (caen con la física)
+	var dash := cabin.dash_surface
+	dash.spawn(ItemData.make_food("Empanada", "round", Vector2(0.9, 0.45), Color(0.85, 0.6, 0.3), 30), Vector2(1.0, -2.3))
+	dash.spawn(ItemData.make_food("Gaseosa", "can", Vector2(0.4, 0.75), Color(0.75, 0.1, 0.1), 10), Vector2(2.0, -2.3))
 	var map := ItemData.new()
 	map.display_name = "Mapa"
 	map.kind = "document"
@@ -84,13 +85,13 @@ func setup(p_van: Van, p_camera: Camera3D, world: Node3D) -> void:
 	map.depth = 0.08
 	map.color = Color(0.85, 0.82, 0.65)
 	map.weight = 0.2
-	cabin.dash_surface.place_at_local_x(map, 6.5)
-	var x := 3.6
+	dash.spawn(map, Vector2(6.5, -2.3))
+	var x := 3.4
 	for spec in [["Paquete chico", Vector2(1.0, 0.8), 4.0], ["Paquete", Vector2(1.4, 1.1), 12.0],
 			["Caja pesada", Vector2(1.6, 1.3), 35.0], ["Paquete", Vector2(1.2, 0.9), 8.0]]:
-		cargo.surface.place_at_local_x(ItemData.make_package(spec[0], spec[1], spec[2]), x)
-		x -= 1.7
-	cargo.surface.place_at_local_x(ItemData.make_package("Sobre", Vector2(0.9, 0.3), 1.0), 1.9)
+		cargo.surface.spawn(ItemData.make_package(spec[0], spec[1], spec[2]), Vector2(x, -3.6))
+		x -= 1.8
+	cargo.surface.spawn(ItemData.make_package("Sobre", Vector2(0.9, 0.3), 1.0), Vector2(1.7, -1.6))
 
 # ---------------------------------------------------------------- estado
 
@@ -106,7 +107,6 @@ func active_overlay() -> Overlay:
 func _process(_delta: float) -> void:
 	cabin.visible = local.space == "cabin"
 	cargo.visible = local.space == "cargo"
-	cabin.feet_enabled = local.space == "cabin" and local.character.seat == van.driver_seat
 	var inside := van.occupied_seats() > 0
 	for p in players:
 		inside = inside or p.space == "cargo"
@@ -120,31 +120,62 @@ func _process(_delta: float) -> void:
 func _space_hint() -> String:
 	match local.space:
 		"cabin":
-			return "W: acelerar · S: frenar (solo conductor) · clic en el piso: bajarse" if local.character.seat == van.driver_seat \
-				else "acompañante: usá las manos · clic en el piso: bajarse"
+			return "todo con el mouse · E: bajarse"
 		"cargo":
-			return "arrastrá paquetes · clic en el piso: irte"
+			return "arrastrá y tirá paquetes · E: irte"
 	return "clic en el piso: caminar · clic en la cabina: subir · clic en la caja: abrirla"
 
 # ---------------------------------------------------------------- input
+
+func _physics_process(_delta: float) -> void:
+	# Inercia: en el tablero se ve el ancho de la van (doblar empuja); en la caja, el largo
+	# (acelerar/frenar empuja). Signos en Van: +X local = izquierda, +Z = adelante.
+	cabin.set_inertia(van.local_accel.x, van.local_accel.y)
+	cargo.set_inertia(van.local_accel.z, van.local_accel.y)
 
 func _input(event: InputEvent) -> void:
 	# El arrastre de ítems se resuelve antes que la interfaz, porque puede terminar sobre una ventana.
 	var hand := local.hand
 	if hand.carrying == null:
+		# Ítem agarrado que sale del overlay (a una ventana, a un personaje o lejos) →
+		# pasa a arrastre universal. Va acá porque sobre una ventana la interfaz se come el evento.
+		if hand.held is ItemNode and event is InputEventMouseMotion:
+			var ovm := active_overlay()
+			var node := hand.held as ItemNode
+			var p := ovm.screen_to_plane(event.position)
+			var outside := not node.surface.contains(p)
+			if windows.window_at(event.position) or not node.surface.contains(p, 1.5) 					or (outside and _character_at(event.position) != null):
+				_physics_to_carry(ovm, node, p)
+				_hover_world(event.position)
+				return
+		# Soltar un ítem con física siempre llega, aunque el mouse esté sobre una ventana.
+		if hand.held is ItemNode and event is InputEventMouseButton 				and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+			var ov := active_overlay()
+			if ov:
+				ov.hand_release(hand, ov.screen_to_plane(event.position))
 		return
 	if event is InputEventMouseMotion:
 		drag_layer.move_item(hand, event.position)
 		var ov := active_overlay()
 		if ov:
-			hand.pos = ov.screen_to_plane(event.position)
+			var p := ov.screen_to_plane(event.position)
+			hand.pos = p
+			var s := ov.surface_at(p)
+			if s and windows.window_at(event.position) == null:
+				_carry_to_physics(s, p)   # volvió al overlay: de nuevo con física, en la mano
+				return
 		_hover_world(event.position)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		_drop(event.position)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F2:
-		switch_player()
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.physical_keycode:
+			KEY_F2:
+				switch_player()
+			KEY_E:
+				if local.space != "":
+					_leave_space(local)
 		return
 	var ov := active_overlay()
 	var hand := local.hand
@@ -184,13 +215,26 @@ func begin_carry(item: ItemData, return_to: Callable) -> void:
 	drag_layer.show_item(hand, item)
 	drag_layer.move_item(hand, get_viewport().get_mouse_position())
 
-func _on_item_grab_requested(node: ItemNode, hand: Hand) -> void:
-	if hand != local.hand:
-		return
+## Un ítem con física que la mano saca afuera de su superficie → se lleva "en la mano"
+## para soltarlo en una ventana o en un personaje. Si no lo acepta nadie, vuelve.
+func _physics_to_carry(ov: Overlay, node: ItemNode, p: Vector2) -> void:
+	var hand := local.hand
+	ov.hand_release(hand, p)
 	var surface := node.surface
-	var x := node.position.x
+	var last := node.local_center()
 	var item := surface.take(node)
-	begin_carry(item, func(it: ItemData) -> void: surface.place_at_local_x(it, x, true))
+	begin_carry(item, func(it: ItemData) -> void: surface.spawn(it, last))
+
+func _carry_to_physics(s: ItemSurface, p: Vector2) -> void:
+	var hand := local.hand
+	var item := hand.carrying
+	hand.carrying = null
+	hand.carry_return = Callable()
+	drag_layer.hide_item(hand)
+	var node := s.spawn(item, s.local_at(p))
+	hand.held = node
+	node.held_by = hand
+	node.on_grab(hand, p)
 
 func _drop(screen: Vector2) -> void:
 	var hand := local.hand
@@ -209,9 +253,14 @@ func _drop(screen: Vector2) -> void:
 		if ov:
 			var p := ov.screen_to_plane(screen)
 			var s := ov.surface_at(p)
-			if s and s.try_place(item, p):
+			if s:
+				s.spawn(item, s.local_at(p))
 				return
 	back.call(item)
+
+func _character_at(screen: Vector2) -> Character:
+	var hit := _ray(screen, 1 << (Character.LAYER_CHARACTERS - 1), false)
+	return hit.collider as Character if hit else null
 
 ## Arrastrando sobre un personaje del mundo → se abre su ventana para soltar ahí.
 func _hover_world(screen: Vector2) -> void:
@@ -229,6 +278,8 @@ func _world_click(screen: Vector2) -> void:
 	if hit and hit.collider is Character:
 		open_character_window(hit.collider, screen)
 		return
+	if local.space != "":
+		return   # dentro de un espacio, el mundo no te saca (para eso está la E)
 	hit = _ray(screen, 1 << (Van.LAYER_ZONES - 1), true)
 	if hit:
 		if hit.collider == van.cabin_zone:
