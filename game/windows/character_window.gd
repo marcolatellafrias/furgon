@@ -64,7 +64,8 @@ func _refresh() -> void:
 	hunger_bar.value = character.hunger
 	if character.held_item != _shown_item:
 		_shown_item = character.held_item
-		_hand_view.set_content(_shown_item.make_visual() if _shown_item else null)
+		var fit := 1.1 / maxf(_shown_item.dims.x, _shown_item.dims.y) if _shown_item else 1.0
+		_hand_view.set_content(_shown_item.make_visual(fit, "side") if _shown_item else null)
 		_hand_label.text = "Mano: " + (_shown_item.display_name if _shown_item else "vacía")
 
 func _on_slot_input(event: InputEvent) -> void:

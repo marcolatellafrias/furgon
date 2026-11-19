@@ -215,7 +215,15 @@ func _selftest_interaction() -> void:
 	_mouse_screen(Vector2.ZERO, false)
 	await _wait(2.0)
 	print("[selftest] J1 espacio='%s' sentado=%s" % [p1.space, ch.seat != null])
-	_mouse_screen(desktop.world_camera.unproject_position(van.to_global(Vector3(0, 1.7, -1.2))), true)
+	var rear_screen := desktop.world_camera.unproject_position(van.to_global(Vector3(0, 1.7, -1.2)))
+	var mm := InputEventMouseMotion.new()
+	mm.position = rear_screen
+	mm.global_position = rear_screen
+	Input.warp_mouse(rear_screen)
+	Input.parse_input_event(mm)
+	await _wait(0.2)
+	_shot("2c_contorno_caja")
+	_mouse_screen(rear_screen, true)
 	_mouse_screen(Vector2.ZERO, false)
 	for i in 30:
 		await _wait(0.2)
@@ -223,10 +231,23 @@ func _selftest_interaction() -> void:
 			break
 	print("[selftest] J1 espacio='%s'  masa van=%.0f kg" % [p1.space, van.mass])
 
-	# 4) Paquete de la caja → mano del personaje (ventana)
+	# 4a) Soltar un paquete encima de otro (lugar inválido) → vuelve a su lugar
+	var bed := desktop.cargo.surface
+	var pkg: ItemNode = bed.items()[0]
+	var big: ItemNode = bed.items()[2]
+	var origin := pkg.local_center()
+	_mouse_screen(desktop.cargo.camera.unproject_position(pkg.global_position), true)
+	await _wait(0.1)
+	_mouse_screen(desktop.cargo.camera.unproject_position(big.global_position), true, true)
+	await _wait(0.2)
+	_shot("3a_soltar_invalido")
+	_mouse_screen(desktop.cargo.camera.unproject_position(big.global_position), false)
+	await _wait(0.3)
+	print("[selftest] soltar encima de otro: estaba en %s, quedó en %s (tiene que volver)" % [origin, pkg.local_center()])
+
+	# 4b) Paquete de la caja → mano del personaje (ventana)
 	win.position = Vector2(1150, 330)
-	var pkg: ItemNode = desktop.cargo.surface.items()[0]
-	var n_before := desktop.cargo.surface.items().size()
+	var n_before := bed.items().size()
 	_mouse_screen(desktop.cargo.camera.unproject_position(pkg.global_position), true)
 	await _wait(0.1)
 	var slot := win.hand_slot.get_global_rect().get_center()
@@ -235,19 +256,22 @@ func _selftest_interaction() -> void:
 	_mouse_screen(slot, false)
 	await _wait(0.4)
 	print("[selftest] en la mano: %s ; paquetes en caja %d -> %d ; masa van=%.0f kg" % [
-		ch.held_item.display_name if ch.held_item else "nada", n_before, desktop.cargo.surface.items().size(), van.mass])
+		ch.held_item.display_name if ch.held_item else "nada", n_before, bed.items().size(), van.mass])
 	_shot("3_caja_y_mano")
 
-	# 5) De la mano de vuelta a la caja
+	# 5) De la mano de vuelta a la caja, en un lugar libre
 	_mouse_screen(slot, true)
 	await _wait(0.1)
-	var target := desktop.cargo.plane_to_screen(Vector2(3.0, -3.0))
+	var target := desktop.cargo.plane_to_screen(Vector2(0.6, -3.9))
 	_mouse_screen(target, true, true)
 	await _wait(0.1)
 	_mouse_screen(target, false)
 	await _wait(0.3)
 	print("[selftest] mano: %s ; paquetes en caja: %d" % [
-		ch.held_item.display_name if ch.held_item else "vacía", desktop.cargo.surface.items().size()])
+		ch.held_item.display_name if ch.held_item else "vacía", bed.items().size()])
+
+	# 6) Frenada fuerte con paquetes: se tienen que correr hacia la cabina
+	_shot("4_caja_desde_arriba")
 
 func _dash_xs() -> Array:
 	var out := []

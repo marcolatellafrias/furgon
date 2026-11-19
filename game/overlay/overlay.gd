@@ -149,17 +149,6 @@ func hand_release(hand: Hand, p: Vector2) -> bool:
 	g.on_release(hand, p)
 	return true
 
-## Inercia: la van acelera/frena/dobla → los ítems del overlay sienten una "gravedad" inclinada.
-## lateral = aceleración (m/s²) en la dirección +X de pantalla que sienten los objetos.
-const GRAVITY_PX := 2500.0
-const INERTIA_GAIN := 1.6
-func set_inertia(lateral: float, vertical: float) -> void:
-	# Limitado: un golpe de suspensión no puede volverse una gravedad absurda.
-	var g := Vector2(clampf(lateral / 9.8 * INERTIA_GAIN, -1.2, 1.2), clampf(1.0 + vertical / 9.8, 0.4, 1.8))
-	var space := viewport.world_2d.space
-	PhysicsServer2D.area_set_param(space, PhysicsServer2D.AREA_PARAM_GRAVITY_VECTOR, g.normalized())
-	PhysicsServer2D.area_set_param(space, PhysicsServer2D.AREA_PARAM_GRAVITY, GRAVITY_PX * g.length())
-
 ## Si una mano se va del espacio, suelta lo que tenía.
 func release_all(hand: Hand) -> void:
 	if hand.held:

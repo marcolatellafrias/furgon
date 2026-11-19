@@ -50,6 +50,8 @@ const BASE_MASS := 1800.0
 var cargo_weight := 0.0
 var _cargo_visual: Node3D
 var _cargo_nodes := {}            ## ItemData -> Node3D
+var _cabin_meshes: Array[MeshInstance3D] = []
+var _box_meshes: Array[MeshInstance3D] = []
 ## Aceleración que siente la van, en su espacio local (m/s²). La usan los overlays
 ## para que los objetos se deslicen al acelerar, frenar o doblar.
 var local_accel := Vector3.ZERO
@@ -102,6 +104,14 @@ func route(from: Vector3, to: Vector3) -> Array[Vector3]:
 	out.append(to)
 	return out
 
+## Contorno al pasar el mouse: "cabin" o "cargo".
+func set_outline(part: String, on: bool) -> void:
+	for m in (_cabin_meshes if part == "cabin" else _box_meshes):
+		# Las paredes desvanecidas no llevan contorno (se vería como un relleno a través de ellas).
+		var mat := m.material_override as StandardMaterial3D
+		var faded := mat != null and mat.albedo_color.a < 0.6
+		LowPoly.set_outline(m, on and not faded)
+
 func occupied_seats() -> int:
 	var n := 0
 	for s in seat_occupant:
@@ -111,10 +121,9 @@ func occupied_seats() -> int:
 
 # ---------------------------------------------------------------- carga
 
-## entries: [{data: ItemData, x, y}] en coordenadas del overlay de la caja.
-## Se dibuja dentro de la van y el peso cambia cómo anda.
-const CARGO_SCALE := 0.36            ## unidades de overlay → metros
-const CARGO_OVERLAY_FLOOR := -4.5
+## entries: [{data: ItemData, x, z, yaw}] en coordenadas locales de la van (metros).
+## Se dibuja apoyado en el piso de la caja y el peso cambia cómo anda.
+const CARGO_FLOOR_Y := 0.85
 func set_cargo(entries: Array) -> void:
 	var seen := {}
 	cargo_weight = 0.0
@@ -124,22 +133,14 @@ func set_cargo(entries: Array) -> void:
 		seen[d] = true
 		var pivot: Node3D = _cargo_nodes.get(d)
 		if pivot == null:
-			# pivot girado 90°: su +X local apunta a la puerta de atrás (-Z de la van)
 			pivot = Node3D.new()
-			pivot.rotation_degrees.y = 90
-			var v := d.make_visual()
-			v.name = "V"
-			v.scale = Vector3.ONE * CARGO_SCALE
-			pivot.add_child(v)
+			pivot.add_child(d.make_visual(1.0, "side"))
 			_cargo_visual.add_child(pivot)
 			_cargo_nodes[d] = pivot
-		# x del overlay: izquierda = fondo (pegado a la cabina), derecha = puerta de atrás
-		var z: float = 0.63 - (float(e.x) + 4.35) * CARGO_SCALE
-		var y: float = 0.85 + (float(e.y) - CARGO_OVERLAY_FLOOR) * CARGO_SCALE
-		pivot.position = Vector3(0, y, z)
-		(pivot.get_node("V") as Node3D).rotation.z = e.rot
+		pivot.position = Vector3(e.x, CARGO_FLOOR_Y + d.dims.y * 0.5, e.z)
+		pivot.rotation.y = e.yaw
 		cargo_weight += d.weight
-		moment += d.weight * z
+		moment += d.weight * float(e.z)
 	for d in _cargo_nodes.keys():
 		if not seen.has(d):
 			_cargo_nodes[d].queue_free()
@@ -346,6 +347,8 @@ func _box(size: Vector3, pos: Vector3, color: Color) -> MeshInstance3D:
 	m.position = pos
 	m.material_override = _mat(color)
 	add_child(m)
+	if size.z < 4.0:   # el piso entero no cuenta
+		(_cabin_meshes if pos.z > 0.75 else _box_meshes).append(m)
 	return m
 
 func _marker(pos: Vector3) -> Marker3D:

@@ -63,6 +63,22 @@ static func torus(radius: float, thickness: float, color: Color, rings := 14, ri
 	t.ring_segments = ring_segments
 	return instance(t, color)
 
+static var _outline_mat: StandardMaterial3D
+
+## Contorno (casco invertido) para marcar lo que se puede usar al pasar el mouse.
+static func set_outline(n: Node, on: bool) -> void:
+	if _outline_mat == null:
+		_outline_mat = StandardMaterial3D.new()
+		_outline_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_outline_mat.cull_mode = BaseMaterial3D.CULL_FRONT
+		_outline_mat.grow = true
+		_outline_mat.grow_amount = 0.04
+		_outline_mat.albedo_color = Color(1.0, 0.85, 0.3)
+	if n is MeshInstance3D:
+		(n as MeshInstance3D).material_overlay = _outline_mat if on else null
+	for c in n.get_children():
+		set_outline(c, on)
+
 static func label(text: String, size := 32, color := Color.WHITE) -> Label3D:
 	var l := Label3D.new()
 	l.text = text

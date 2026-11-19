@@ -128,7 +128,6 @@ func _refresh_held() -> void:
 		_held_visual.queue_free()
 		_held_visual = null
 	if held_item and _visual:
-		_held_visual = held_item.make_visual()
-		_held_visual.scale = Vector3.ONE * 0.4
-		_held_visual.position = Vector3(0, 0.85, 0.38)
+		_held_visual = held_item.make_visual(1.0, "side")
+		_held_visual.position = Vector3(0, 0.85, 0.3 + held_item.dims.z * 0.5)
 		_visual.add_child(_held_visual)
