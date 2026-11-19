@@ -9,11 +9,7 @@ var _key: Node3D
 func _ready() -> void:
 	grab_radius = 0.4
 	priority = 1
-	var barrel := CylinderMesh.new()
-	barrel.top_radius = 0.28
-	barrel.bottom_radius = 0.28
-	barrel.height = 0.1
-	var b := make_mesh(barrel, Color(0.5, 0.5, 0.55))
+	var b := LowPoly.cylinder(0.28, 0.1, Color(0.5, 0.5, 0.55), 8)
 	b.rotation_degrees.x = 90
 	add_child(b)
 	_key = Node3D.new()

@@ -27,26 +27,9 @@ func on_drag(_hand: Hand, _p: Vector2) -> void:
 func on_release(_hand: Hand, _p: Vector2) -> void:
 	pass
 
-# --- helpers de dibujo para placeholders
-static func make_mesh(mesh: Mesh, color: Color) -> MeshInstance3D:
-	var m := MeshInstance3D.new()
-	m.mesh = mesh
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 0.6
-	m.material_override = mat
-	return m
-
+# --- atajos de dibujo (todo pasa por LowPoly)
 static func box(size: Vector3, color: Color) -> MeshInstance3D:
-	var b := BoxMesh.new()
-	b.size = size
-	return make_mesh(b, color)
+	return LowPoly.box(size, color)
 
 static func label(text: String, size := 32, color := Color.WHITE) -> Label3D:
-	var l := Label3D.new()
-	l.text = text
-	l.font_size = size
-	l.pixel_size = 0.01
-	l.modulate = color
-	l.outline_size = 6
-	return l
+	return LowPoly.label(text, size, color)

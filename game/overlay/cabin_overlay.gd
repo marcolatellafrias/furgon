@@ -15,6 +15,9 @@ var pedals := {}   # property -> PedalControl
 
 ## Si tiene entradas, reemplaza al teclado (lo usa el autotest).
 var feet_override := {}
+## Los pies (teclado) solo llegan a los pedales desde el asiento del conductor.
+var feet_enabled := true
+var dash_surface: ItemSurface
 
 var _speed_label: Label3D
 var _rpm_label: Label3D
@@ -28,6 +31,7 @@ var _mirror_cam: Camera3D
 const DASH := Color(0.2, 0.2, 0.22)
 
 func build() -> void:
+	world_focus_y = 0.6
 	var c := van.controls
 
 	# Tablero y marco superior
@@ -90,6 +94,14 @@ func build() -> void:
 
 	_build_mirror()
 
+	# Superficie del tablero: acá se apoyan cosas (y más adelante tapan la vista).
+	dash_surface = add_surface(ItemSurface.new())
+	dash_surface.x_min = -8.6
+	dash_surface.x_max = 8.6
+	dash_surface.floor_y = -2.9
+	dash_surface.ceiling_y = -0.4
+	dash_surface.z = -1.2
+
 func _build_mirror() -> void:
 	var frame := Grabbable.box(Vector3(3.7, 1.15, 0.2), Color(0.1, 0.1, 0.1))
 	frame.position = Vector3(0, 3.9, -0.3)
@@ -129,9 +141,10 @@ func _process(delta: float) -> void:
 	_mirror_cam.global_transform = van.mirror_anchor.global_transform
 
 	# Pies
-	_feet("throttle", Input.is_physical_key_pressed(KEY_W), delta, 3.0)
-	_feet("brake", Input.is_physical_key_pressed(KEY_S), delta, 5.0)
-	_feet("clutch", Input.is_physical_key_pressed(KEY_SPACE), delta, 6.0)
+	var f := feet_enabled
+	_feet("throttle", f and Input.is_physical_key_pressed(KEY_W), delta, 3.0)
+	_feet("brake", f and Input.is_physical_key_pressed(KEY_S), delta, 5.0)
+	_feet("clutch", f and Input.is_physical_key_pressed(KEY_SPACE), delta, 6.0)
 
 	# Tablero
 	_speed_label.text = "%d km/h" % roundi(van.speed_kmh)

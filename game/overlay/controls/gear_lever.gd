@@ -37,10 +37,7 @@ func _ready() -> void:
 		var l := label(VanControls.gear_name(GATES[g]), 24, Color(0.8, 0.8, 0.8))
 		l.position = Vector3(g.x * step, g.y * (step + 0.32), 0.05)
 		add_child(l)
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.2
-	sphere.height = 0.4
-	_knob_mesh = make_mesh(sphere, Color(0.1, 0.1, 0.1))
+	_knob_mesh = LowPoly.sphere(0.2, Color(0.1, 0.1, 0.1), 8, 5)
 	_knob_mesh.position.z = 0.2
 	add_child(_knob_mesh)
 

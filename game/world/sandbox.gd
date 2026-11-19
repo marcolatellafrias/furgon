@@ -6,6 +6,7 @@ extends Node3D
 
 var van: Van
 var cabin: CabinOverlay
+var desktop: Desktop
 
 func _ready() -> void:
 	randomize()
@@ -16,24 +17,11 @@ func _ready() -> void:
 	van.position = Vector3(0, 1.0, 0)
 	add_child(van)
 
-	# Conductor sentado (placeholder). Está "adentro" → techo y paredes se desvanecen.
-	var driver := MeshInstance3D.new()
-	var cap := CapsuleMesh.new()
-	cap.radius = 0.22
-	cap.height = 1.1
-	driver.mesh = cap
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.25, 0.55, 0.9)
-	driver.material_override = mat
-	driver.position = Vector3(0, 0.6, 0)
-	van.driver_seat.add_child(driver)
-	van.interior.set_occupied(true)
-
-	$IsoCamera.target = van
-
-	cabin = CabinOverlay.new()
-	cabin.van = van
-	add_child(cabin)
+	desktop = Desktop.new()
+	desktop.name = "Desktop"
+	add_child(desktop)
+	desktop.setup(van, $IsoCamera, self)
+	cabin = desktop.cabin
 
 	if "--selftest" in OS.get_cmdline_user_args():
 		_selftest()
@@ -68,15 +56,7 @@ func _build_props() -> void:
 		shape.height = 0.8
 		col.shape = shape
 		cone.add_child(col)
-		var m := MeshInstance3D.new()
-		var cm := CylinderMesh.new()
-		cm.top_radius = 0.05
-		cm.bottom_radius = 0.28
-		cm.height = 0.8
-		m.mesh = cm
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(1, 0.45, 0.1)
-		m.material_override = mat
+		var m := LowPoly.cone(0.28, 0.8, Color(1, 0.45, 0.1), 7)
 		cone.add_child(m)
 		add_child(cone)
 
@@ -141,20 +121,100 @@ func _selftest() -> void:
 	print("[selftest] volante: %.0f°  steer=%.2f" % [rad_to_deg(cabin.wheel.angle), van.controls.steer])
 	await _wait(0.8)
 	log.call("doblando a la derecha")
-	var shot := "user://selftest.png"
-	for a in OS.get_cmdline_user_args():
-		if a.begins_with("--shot="):
-			shot = a.trim_prefix("--shot=")
-	get_viewport().get_texture().get_image().save_png(shot)
-	print("[selftest] captura: ", shot)
-	f["throttle"] = 0.0; f["brake"] = 1.0
-	await _wait(2.0)
+	_shot("1_manejando")
+	f["throttle"] = 0.0; f["brake"] = 1.0; f["clutch"] = 1.0
+	await _wait(2.5)
 	log.call("frenado")
+	f.clear()
+	await _selftest_interaction()
 	get_tree().quit()
 
-## Simula el mouse sobre un punto del overlay (en coordenadas 3D del overlay).
-func _mouse(overlay_point: Vector3, pressed: bool, motion := false) -> void:
-	var screen := cabin.camera.unproject_position(overlay_point)
+func _selftest_interaction() -> void:
+	var p1 := desktop.players[0]
+	var p2 := desktop.players[1]
+	var ch := p1.character
+	var hunger_before := ch.hunger
+
+	# 1) Comer: empanada del tablero → pasar sobre el personaje (abre ventana) → soltar en la ventana
+	var emp: ItemNode = null
+	for n in cabin.dash_surface.items():
+		if n.data.display_name == "Empanada":
+			emp = n
+	_mouse_screen(cabin.camera.unproject_position(emp.global_position), true)
+	await _wait(0.1)
+	var char_screen := desktop.world_camera.unproject_position(ch.global_position + Vector3(0, 1.0, 0))
+	_mouse_screen(char_screen, true, true)
+	await _wait(0.3)
+	var win := desktop.windows.find_window("char:%d" % ch.get_instance_id()) as CharacterWindow
+	print("[selftest] ventana abierta al pasar arrastrando: ", win != null)
+	var center := win.get_global_rect().position + Vector2(70, 90)  # sobre el retrato
+	_mouse_screen(center, true, true)
+	await _wait(0.1)
+	_mouse_screen(center, false)
+	await _wait(0.2)
+	print("[selftest] hambre %.1f -> %.1f ; empanada en tablero: %s" % [hunger_before, ch.hunger,
+		cabin.dash_surface.items().any(func(n: ItemNode) -> bool: return n.data.display_name == "Empanada")])
+
+	# 2) Mano del otro: el jugador 2 agarra el volante y lo deja agarrado
+	desktop.switch_player()
+	var wc := cabin.wheel.global_position
+	_mouse_screen(cabin.camera.unproject_position(wc + Vector3(cabin.wheel.radius, 0, 0)), true)
+	_mouse_screen(cabin.camera.unproject_position(wc + Vector3(cabin.wheel.radius * 0.7, cabin.wheel.radius * 0.7, 0)), true, true)
+	desktop.switch_player()
+	await _wait(0.3)
+	print("[selftest] J2 sostiene el volante: ", p2.hand.held == cabin.wheel)
+	_shot("2_comer_y_mano_j2")
+	cabin.hand_release(p2.hand, p2.hand.pos)
+
+	# 3) Bajarse y caminar a la caja de atrás
+	_mouse_screen(desktop.world_camera.unproject_position(van.to_global(Vector3(5, 0, 0))), true)
+	_mouse_screen(Vector2.ZERO, false)
+	await _wait(2.0)
+	print("[selftest] J1 espacio='%s' sentado=%s" % [p1.space, ch.seat != null])
+	_mouse_screen(desktop.world_camera.unproject_position(van.to_global(Vector3(0, 1.7, -1.2))), true)
+	_mouse_screen(Vector2.ZERO, false)
+	for i in 30:
+		await _wait(0.2)
+		if p1.space == "cargo":
+			break
+	print("[selftest] J1 espacio='%s'  masa van=%.0f kg" % [p1.space, van.mass])
+
+	# 4) Paquete de la caja → mano del personaje (ventana)
+	win.position = Vector2(1150, 330)
+	var pkg: ItemNode = desktop.cargo.surface.items()[0]
+	var n_before := desktop.cargo.surface.items().size()
+	_mouse_screen(desktop.cargo.camera.unproject_position(pkg.global_position), true)
+	await _wait(0.1)
+	var slot := win.hand_slot.get_global_rect().get_center()
+	_mouse_screen(slot, true, true)
+	await _wait(0.1)
+	_mouse_screen(slot, false)
+	await _wait(0.4)
+	print("[selftest] en la mano: %s ; paquetes en caja %d -> %d ; masa van=%.0f kg" % [
+		ch.held_item.display_name if ch.held_item else "nada", n_before, desktop.cargo.surface.items().size(), van.mass])
+	_shot("3_caja_y_mano")
+
+	# 5) De la mano de vuelta a la caja
+	_mouse_screen(slot, true)
+	await _wait(0.1)
+	var target := desktop.cargo.plane_to_screen(Vector2(3.0, -3.0))
+	_mouse_screen(target, true, true)
+	await _wait(0.1)
+	_mouse_screen(target, false)
+	await _wait(0.3)
+	print("[selftest] mano: %s ; paquetes en caja: %d" % [
+		ch.held_item.display_name if ch.held_item else "vacía", desktop.cargo.surface.items().size()])
+
+func _shot(tag: String) -> void:
+	var base := "user://selftest"
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--shot="):
+			base = a.trim_prefix("--shot=").trim_suffix(".png")
+	var path := "%s_%s.png" % [base, tag]
+	get_viewport().get_texture().get_image().save_png(path)
+	print("[selftest] captura: ", path)
+
+func _mouse_screen(screen: Vector2, pressed: bool, motion := false) -> void:
 	var ev: InputEventMouse
 	if motion:
 		ev = InputEventMouseMotion.new()
@@ -164,10 +224,17 @@ func _mouse(overlay_point: Vector3, pressed: bool, motion := false) -> void:
 		b.button_index = MOUSE_BUTTON_LEFT
 		b.pressed = pressed
 		ev = b
+	if screen == Vector2.ZERO:
+		screen = get_viewport().get_mouse_position()
 	ev.position = screen
 	ev.global_position = screen
+	Input.warp_mouse(screen)
 	Input.parse_input_event(ev)
 	Input.flush_buffered_events()
+
+## Simula el mouse sobre un punto del overlay de la cabina (coordenadas 3D del overlay).
+func _mouse(overlay_point: Vector3, pressed: bool, motion := false) -> void:
+	_mouse_screen(cabin.camera.unproject_position(overlay_point), pressed, motion)
 
 func _wait(t: float) -> void:
 	await get_tree().create_timer(t, true, true).timeout

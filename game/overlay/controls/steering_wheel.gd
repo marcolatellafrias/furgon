@@ -16,10 +16,7 @@ func _ready() -> void:
 	grab_radius = radius + 0.25
 	_visual = Node3D.new()
 	add_child(_visual)
-	var torus := TorusMesh.new()
-	torus.inner_radius = radius - 0.16
-	torus.outer_radius = radius + 0.06
-	var ring := make_mesh(torus, Color(0.12, 0.12, 0.13))
+	var ring := LowPoly.torus(radius - 0.05, 0.24, Color(0.12, 0.12, 0.13), 14, 6)
 	ring.rotation_degrees.x = 90
 	_visual.add_child(ring)
 	for a in [0.0, 180.0, 270.0]:

@@ -6,6 +6,10 @@ extends Camera3D
 @export var zoom := 20.0
 @export var follow_speed := 6.0
 
+## Fracción de media pantalla que el objetivo se corre hacia arriba (lo pone el Desktop
+## según el overlay abierto, para que el personaje quede en la zona libre).
+var screen_focus := 0.0
+
 var _center := Vector3.ZERO
 
 func _ready() -> void:
@@ -19,6 +23,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if target:
 		_center = _center.lerp(target.global_position, 1.0 - exp(-follow_speed * delta))
+	v_offset = lerpf(v_offset, -screen_focus * size * 0.5, 1.0 - exp(-follow_speed * delta))
 	_update()
 
 func _update() -> void:

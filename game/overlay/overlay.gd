@@ -1,20 +1,34 @@
 class_name Overlay
 extends CanvasLayer
-## Base de todos los overlays de espacio (cabina, motor…).
+## Base de todos los overlays de espacio (cabina, caja de atrás, motor…).
 ## Es una escena 3D propia con cámara ortográfica de frente, dibujada encima del mundo.
 ## Todo lo interactivo vive en el plano XY y se agarra con manos.
 ## Regla: el overlay nunca tapa todo el mundo (fondo transparente, ocupa bordes).
+## El input lo reparte el Desktop: el overlay solo sabe qué hay bajo una mano.
+
+signal item_grab_requested(node: ItemNode, hand: Hand)
 
 const VIEW_HEIGHT := 10.0  ## alto visible en unidades: Y va de -5 (abajo) a +5 (arriba)
 
+## Proyección oblicua ("vista 3/4"): la cara de frente queda plana y sin deformar, y lo que
+## está más cerca del jugador (Z mayor) baja un poco en pantalla, así se ve la cara de arriba.
+const OBLIQUE_TOP := 0.45
+const OBLIQUE_SIDE := 0.0
+
+var space_id := ""
+## Dónde tiene que quedar el foco del mundo (tu personaje) con este overlay abierto,
+## en unidades del overlay (Y: -5 abajo … +5 arriba). Así el overlay nunca lo tapa.
+var world_focus_y := 0.0
 var viewport: SubViewport
 var camera: Camera3D
 var root3d: Node3D
-var local_hand := Hand.new(0)
-var hands: Array[Hand] = []
+
+static func oblique_basis() -> Basis:
+	return Basis(Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(-OBLIQUE_SIDE, -OBLIQUE_TOP, 1))
 
 func _ready() -> void:
-	layer = 1
+	if layer == 1:
+		layer = 5
 	var container := SubViewportContainer.new()
 	container.stretch = true
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -51,25 +65,26 @@ func _ready() -> void:
 	root3d = Node3D.new()
 	root3d.transform = Transform3D(oblique_basis(), Vector3.ZERO)
 	viewport.add_child(root3d)
-	hands.append(local_hand)
 	build()
-
-## Proyección oblicua ("vista 3/4"): la cara de frente queda plana y sin deformar, y lo que
-## está más cerca del jugador (Z mayor) baja un poco en pantalla, así se ve la cara de arriba.
-## top = cuánto se ve de arriba; side = cuánto se ve de costado (0 = nada).
-const OBLIQUE_TOP := 0.45
-const OBLIQUE_SIDE := 0.0
-
-static func oblique_basis() -> Basis:
-	return Basis(Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(-OBLIQUE_SIDE, -OBLIQUE_TOP, 1))
 
 ## Para sobreescribir: arma el contenido del overlay dentro de root3d.
 func build() -> void:
 	pass
 
+# ---------------------------------------------------------------- coordenadas
+
 func screen_to_plane(screen: Vector2) -> Vector2:
 	var p := camera.project_position(screen, 1.0)
 	return Vector2(p.x, p.y)
+
+func plane_to_screen(p: Vector2) -> Vector2:
+	return camera.unproject_position(Vector3(p.x, p.y, 0))
+
+## Punto del plano de pantalla → coordenadas locales de root3d a una profundidad z.
+func plane_to_local(p: Vector2, z: float) -> Vector2:
+	return Vector2(p.x + OBLIQUE_SIDE * z, p.y + OBLIQUE_TOP * z)
+
+# ---------------------------------------------------------------- contenido
 
 func grabbables() -> Array[Grabbable]:
 	var out: Array[Grabbable] = []
@@ -82,6 +97,24 @@ func _collect(n: Node, out: Array[Grabbable]) -> void:
 		if c is Grabbable:
 			out.append(c)
 		_collect(c, out)
+
+func surfaces() -> Array[ItemSurface]:
+	var out: Array[ItemSurface] = []
+	for c in root3d.get_children():
+		if c is ItemSurface:
+			out.append(c)
+	return out
+
+func surface_at(p: Vector2) -> ItemSurface:
+	for s in surfaces():
+		if s.contains(p):
+			return s
+	return null
+
+func add_surface(s: ItemSurface) -> ItemSurface:
+	s.overlay = self
+	root3d.add_child(s)
+	return s
 
 func grabbable_at(p: Vector2, hand: Hand) -> Grabbable:
 	for g in grabbables():
@@ -96,6 +129,9 @@ func hand_press(hand: Hand, p: Vector2) -> bool:
 	var g := grabbable_at(p, hand)
 	if g == null:
 		return false
+	if g is ItemNode:
+		item_grab_requested.emit(g, hand)  # los ítems se arrastran, no se "sostienen" acá
+		return true
 	hand.held = g
 	g.held_by = hand
 	g.on_grab(hand, p)
@@ -118,24 +154,7 @@ func hand_release(hand: Hand, p: Vector2) -> bool:
 	g.on_release(hand, p)
 	return true
 
-func _unhandled_input(event: InputEvent) -> void:
-	if not visible:
-		return
-	var handled := false
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		var p := screen_to_plane(event.position)
-		handled = hand_press(local_hand, p) if event.pressed else hand_release(local_hand, p)
-	elif event is InputEventMouseMotion:
-		var p := screen_to_plane(event.position)
-		handled = hand_move(local_hand, p)
-		_update_cursor(p)
-	if handled:
-		get_viewport().set_input_as_handled()
-
-func _update_cursor(p: Vector2) -> void:
-	var shape := Input.CURSOR_ARROW
-	if local_hand.held:
-		shape = Input.CURSOR_DRAG
-	elif grabbable_at(p, local_hand):
-		shape = Input.CURSOR_POINTING_HAND
-	Input.set_default_cursor_shape(shape)
+## Si una mano se va del espacio, suelta lo que tenía.
+func release_all(hand: Hand) -> void:
+	if hand.held:
+		hand_release(hand, hand.pos)

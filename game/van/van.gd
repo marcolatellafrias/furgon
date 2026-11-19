@@ -38,6 +38,14 @@ var interior: Interior
 var mirror_anchor: Marker3D
 var driver_seat: Marker3D
 var passenger_seat: Marker3D
+var seat_occupant := {}          ## Marker3D (asiento) -> Character o null
+var cabin_zone: Area3D           ## clic acá = subir a la cabina
+var rear_zone: Area3D            ## clic acá = ir a la caja de atrás
+
+const LAYER_ZONES := 3
+const BASE_MASS := 1800.0
+var cargo_weight := 0.0
+var _cargo_visual: Node3D
 
 var _front_wheels: Array[VehicleWheel3D] = []
 var _rear_wheels: Array[VehicleWheel3D] = []
@@ -47,11 +55,76 @@ var _crank_timer := 0.0
 func _ready() -> void:
 	if controls == null:
 		controls = VanControls.new()
-	mass = 1800.0
+	mass = BASE_MASS
 	center_of_mass_mode = CENTER_OF_MASS_MODE_CUSTOM
 	center_of_mass = Vector3(0, 0.45, 0)
 	_build_body()
 	_build_wheels()
+	seat_occupant = {driver_seat: null, passenger_seat: null}
+	cabin_zone = _zone(Vector3(2.1, 1.9, 1.9), Vector3(0, 1.6, 1.45))
+	rear_zone = _zone(Vector3(2.1, 2.0, 3.4), Vector3(0, 1.7, -0.95))
+
+# ---------------------------------------------------------------- asientos y puertas
+
+func free_seat() -> Marker3D:
+	for s in [driver_seat, passenger_seat]:
+		if seat_occupant[s] == null:
+			return s
+	return null
+
+func door_point(seat: Marker3D) -> Vector3:
+	var side := 1.0 if seat == driver_seat else -1.0
+	return to_global(Vector3(1.75 * side, 0.2, 1.3))
+
+func rear_point() -> Vector3:
+	return to_global(Vector3(0, 0.2, -3.7))
+
+func occupied_seats() -> int:
+	var n := 0
+	for s in seat_occupant:
+		if seat_occupant[s] != null:
+			n += 1
+	return n
+
+# ---------------------------------------------------------------- carga
+
+## entries: [{data: ItemData, x, y}] en coordenadas del overlay de la caja.
+## Se dibuja dentro de la van y el peso cambia cómo anda.
+const CARGO_SCALE := 0.36            ## unidades de overlay → metros
+const CARGO_OVERLAY_FLOOR := -4.5
+func set_cargo(entries: Array) -> void:
+	for c in _cargo_visual.get_children():
+		c.queue_free()
+	cargo_weight = 0.0
+	var moment := 0.0
+	for e in entries:
+		var d: ItemData = e.data
+		var v := d.make_visual()
+		v.scale = Vector3.ONE * CARGO_SCALE
+		# x del overlay: izquierda = fondo (pegado a la cabina), derecha = puerta de atrás
+		var z: float = 0.63 - (float(e.x) + 4.35) * CARGO_SCALE
+		var y: float = 0.85 + (float(e.y) - CARGO_OVERLAY_FLOOR) * CARGO_SCALE
+		v.position = Vector3(0, y, z)
+		v.rotation_degrees.y = 90   # en el overlay se ve de costado
+		_cargo_visual.add_child(v)
+		cargo_weight += d.weight
+		moment += d.weight * z
+	mass = BASE_MASS + cargo_weight
+	center_of_mass.z = moment / mass
+
+func _zone(size: Vector3, pos: Vector3) -> Area3D:
+	var a := Area3D.new()
+	a.collision_layer = 1 << (LAYER_ZONES - 1)
+	a.collision_mask = 0
+	a.monitoring = false
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = size
+	col.shape = shape
+	a.add_child(col)
+	a.position = pos
+	add_child(a)
+	return a
 
 # ---------------------------------------------------------------- simulación
 
@@ -86,12 +159,14 @@ func _physics_process(delta: float) -> void:
 		rpm = move_toward(rpm, 0.0, 3000.0 * delta)
 
 	var steer_rad := -c.steer * deg_to_rad(max_steer_deg)  # steering positivo = izquierda
+	# Sin nadie al volante, freno de mano puesto (por ahora automático).
+	var brake := c.brake if seat_occupant.get(driver_seat) != null else 1.0
 	for w in _front_wheels:
 		w.steering = steer_rad
-		w.brake = c.brake * max_brake
+		w.brake = brake * max_brake
 	for w in _rear_wheels:
 		w.engine_force = force / _rear_wheels.size()
-		w.brake = c.brake * max_brake
+		w.brake = brake * max_brake
 
 func _update_ignition(delta: float) -> void:
 	if controls.ignition_turns != _seen_ignition:
@@ -168,13 +243,9 @@ func _build_body() -> void:
 	for seat in [driver_seat, passenger_seat]:
 		_box(Vector3(0.7, 0.25, 0.6), seat.position + Vector3(0, 0, 0), Color(0.25, 0.3, 0.4))
 		_box(Vector3(0.7, 0.8, 0.15), seat.position + Vector3(0, 0.45, -0.3), Color(0.25, 0.3, 0.4))
-	# Paquetes de ejemplo atrás (placeholder hasta tener ítems de verdad)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7
-	for i in 5:
-		var s := Vector3(rng.randf_range(0.4, 0.8), rng.randf_range(0.3, 0.6), rng.randf_range(0.4, 0.7))
-		_box(s, Vector3(rng.randf_range(-0.5, 0.5), 0.85 + s.y / 2, rng.randf_range(-2.1, -0.4)),
-			Color(0.65, 0.48, 0.3).lerp(Color(0.8, 0.65, 0.45), rng.randf()))
+	_cargo_visual = Node3D.new()
+	_cargo_visual.name = "Carga"
+	add_child(_cargo_visual)
 
 	mirror_anchor = _marker(Vector3(0, 2.2, -2.9))
 	mirror_anchor.rotation_degrees = Vector3(-8, 0, 0)  # la cámara mira hacia -Z = hacia atrás
@@ -201,15 +272,12 @@ func _build_wheels() -> void:
 		w.wheel_friction_slip = front_grip if front else rear_grip
 		w.wheel_roll_influence = 0.3
 		add_child(w)
-		var mesh := MeshInstance3D.new()
-		var cyl := CylinderMesh.new()
-		cyl.top_radius = wheel_radius
-		cyl.bottom_radius = wheel_radius
-		cyl.height = 0.3
-		mesh.mesh = cyl
-		mesh.rotation_degrees = Vector3(0, 0, 90)
-		mesh.material_override = _mat(Color(0.1, 0.1, 0.1))
-		w.add_child(mesh)
+		var tire := LowPoly.cylinder(wheel_radius, 0.3, Color(0.1, 0.1, 0.1), 10)
+		tire.rotation_degrees = Vector3(0, 0, 90)
+		w.add_child(tire)
+		var hub := LowPoly.cylinder(wheel_radius * 0.5, 0.32, Color(0.6, 0.6, 0.62), 6)
+		hub.rotation_degrees = Vector3(0, 0, 90)
+		w.add_child(hub)
 		(_front_wheels if front else _rear_wheels).append(w)
 
 func _box(size: Vector3, pos: Vector3, color: Color) -> MeshInstance3D:

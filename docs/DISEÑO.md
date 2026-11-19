@@ -51,11 +51,31 @@ se intenta expresar con estas.
 - Todo el estado (controles, ítems, quién agarra qué) es **dato compartido**; las manos solo mandan intenciones
   (agarrar, mover, soltar). Así single player y multijugador usan el mismo código.
 
+## Decisiones tomadas (provisorias)
+- **Pies = teclado, manos = mouse.** Los pies (W/S/Espacio) solo llegan a los pedales desde el asiento
+  del conductor. El acompañante puede pisar pedales "con la mano" (arrastrándolos) → cooperativo.
+- **La caja de atrás es overlay** (espacio compartido: los dos pueden acomodar a la vez). Se ve de costado.
+- **Con un overlay abierto, la cámara del mundo se corre** para que tu personaje quede en la zona libre.
+- **Arrastrar sobre un personaje del mundo abre su ventana** (como pasar un archivo sobre la barra de tareas).
+- Ventana de personaje: soltar comida en cualquier parte = comer; soltar en "Mano" = agarrarlo.
+- Sin conductor, la van queda con freno de mano.
+- F2 (debug): cambia de jugador para probar el cooperativo con un solo mouse.
+- Estilo: todo low poly moderado con sombreado suave (ver `game/core/lowpoly.gd`).
+
 ## Pendiente / ambiguo
-- ¿La caja de atrás es overlay o ventana? (no estás adentro → podría ser ventana).
 - ¿La rueda, el motor: overlay o ventana? Tendencia: ventana si no hace falta ver el mundo.
 - ¿Las ventanas son de cada jugador o compartidas?
 - Cómo se ve el diálogo dentro de una ventana.
+
+## Arquitectura (código)
+- `Desktop` (game/ui): reparte el input del jugador local: ventanas > overlay de su espacio > mundo.
+  Maneja el arrastre universal (`begin_carry` / soltar / devolver si nadie acepta).
+- `Overlay` (game/overlay): escena 3D oblicua por espacio. `Grabbable` = mando agarrable; `ItemSurface` =
+  superficie con ítems apilables; `ItemNode` = ítem apoyado.
+- `GameWindow` / `WindowManager` (game/windows): ventanas + barra de tareas. `can_accept` / `accept_drop`.
+- `Player` = mano + personaje + espacio. `Hand` sostiene un mando o arrastra un ítem, nunca dos cosas.
+- `ItemData` es el dato; cada contenedor crea su propio dibujo con `make_visual()`.
+- `VanControls` es el estado compartido de mandos que lee la física de la van.
 
 ## Notas técnicas
 - Godot 4.5, Forward+.
