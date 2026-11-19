@@ -97,12 +97,14 @@ func build() -> void:
 	_build_mirror()
 
 	# Superficie del tablero: acá se apoyan cosas (y más adelante tapan la vista).
-	dash_surface = add_surface(ItemSurface.new())
-	dash_surface.x_min = -8.6
-	dash_surface.x_max = 8.6
-	dash_surface.floor_y = -2.9
-	dash_surface.ceiling_y = -0.4
-	dash_surface.z = -1.2
+	# La zona física es toda la pantalla: lo que tirás vuela sobre el mundo y cae al tablero.
+	var ds := ItemSurface.new()
+	ds.x_min = -8.8
+	ds.x_max = 8.8
+	ds.floor_y = -2.9
+	ds.ceiling_y = 4.4
+	ds.z = -1.2
+	dash_surface = add_surface(ds)   # recién acá se arman las paredes físicas
 
 func _build_mirror() -> void:
 	var frame := Grabbable.box(Vector3(3.7, 1.15, 0.2), Color(0.1, 0.1, 0.1))

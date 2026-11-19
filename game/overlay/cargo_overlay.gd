@@ -28,12 +28,13 @@ func build() -> void:
 	title.position = Vector3(0, -0.75, -1.65)
 	root3d.add_child(title)
 
-	surface = add_surface(ItemSurface.new())
-	surface.x_min = -4.35
-	surface.x_max = 4.35
-	surface.floor_y = -4.5
-	surface.ceiling_y = -1.15
-	surface.z = -0.8
+	var s := ItemSurface.new()
+	s.x_min = -4.35
+	s.x_max = 4.35
+	s.floor_y = -4.5
+	s.ceiling_y = 4.4   # sin techo: se puede tirar para arriba y vuelve a caer en la caja
+	s.z = -0.8
+	surface = add_surface(s)   # recién acá se arman las paredes físicas
 	surface.changed.connect(func() -> void: van.set_cargo(surface.snapshot()))
 
 func _physics_process(_delta: float) -> void:

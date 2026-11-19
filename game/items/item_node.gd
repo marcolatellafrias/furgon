@@ -24,10 +24,12 @@ func setup(p_data: ItemData, p_surface: ItemSurface) -> void:
 	body.mass = maxf(data.weight, 0.2)
 	body.continuous_cd = RigidBody2D.CCD_MODE_CAST_SHAPE
 	body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
+	body.angular_damp = 2.0     # que no quede girando para siempre
+	body.linear_damp = 0.1
 	body.can_sleep = false   # si duerme no siente la inercia de la van
 	var pm := PhysicsMaterial.new()
-	pm.friction = 0.35
-	pm.bounce = 0.15
+	pm.friction = 0.6
+	pm.bounce = 0.2
 	body.physics_material_override = pm
 	var col := CollisionShape2D.new()
 	var px := ItemSurface.PX
@@ -97,4 +99,4 @@ func on_drag(_hand: Hand, p: Vector2) -> void:
 func on_release(_hand: Hand, _p: Vector2) -> void:
 	body.freeze = false           # suelto: física, con la velocidad de la mano
 	body.linear_velocity = _hand_velocity.limit_length(MAX_SPEED_PX)
-	body.angular_velocity = clampf(_hand_velocity.x * 0.004, -12.0, 12.0)
+	body.angular_velocity = 0.0

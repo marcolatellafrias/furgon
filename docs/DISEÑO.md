@@ -60,8 +60,9 @@ se intenta expresar con estas.
 - **Física de los ítems: agarrado no tiene física, suelto sí**, con la velocidad con que lo soltaste
   (se puede tirar, rebota, se da vuelta, se agarra en el aire). La aceleración de la van empuja los
   ítems: doblar en el tablero, acelerar/frenar en la caja.
-- Un ítem agarrado que sale del overlay (hacia una ventana o un personaje) pasa a "arrastre universal";
-  si vuelve a entrar, vuelve a ser físico.
+- La zona física del tablero es **toda la pantalla**: lo que tirás vuela por encima del mundo y cae.
+  Al soltar un ítem: si es sobre una ventana que lo acepta, va a la ventana; si no, física normal con
+  la velocidad del mouse (medida mientras lo arrastrás). Pasar sobre un personaje abre su ventana.
 - **La caja de atrás es overlay** (espacio compartido: los dos pueden acomodar a la vez). Se ve de costado.
 - **Con un overlay abierto, la cámara del mundo se corre** para que tu personaje quede en la zona libre.
 - **Arrastrar sobre un personaje del mundo abre su ventana** (como pasar un archivo sobre la barra de tareas).

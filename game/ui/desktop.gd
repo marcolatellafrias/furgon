@@ -112,6 +112,7 @@ func _process(_delta: float) -> void:
 		inside = inside or p.space == "cargo"
 	van.interior.set_occupied(inside)
 	world_camera.target = local.character
+	_update_lifted()
 	var ov := active_overlay()
 	world_camera.screen_focus = ov.world_focus_y / (Overlay.VIEW_HEIGHT * 0.5) if ov else 0.0
 	_hint.position = Vector2(12, get_viewport().get_visible_rect().size.y - 24) if local.space == "" else Vector2(12, 40)
@@ -127,6 +128,24 @@ func _space_hint() -> String:
 
 # ---------------------------------------------------------------- input
 
+var _lifted: ItemNode = null
+
+## El ítem que tenés agarrado se dibuja en la capa de arriba de todo (sobre las ventanas).
+func _update_lifted() -> void:
+	var hand := local.hand
+	var node := hand.held as ItemNode if hand.held is ItemNode else null
+	if node != _lifted:
+		if is_instance_valid(_lifted):
+			_lifted.visible = true
+		drag_layer.hide_item(hand)
+		_lifted = node
+		if node:
+			drag_layer.show_item(hand, node.data, 1.0)
+	if _lifted:
+		_lifted.visible = false
+		var ov := active_overlay()
+		drag_layer.place_item(hand, ov.plane_to_screen(_lifted.grab_point()), _lifted.rotation.z)
+
 func _physics_process(_delta: float) -> void:
 	# Inercia: en el tablero se ve el ancho de la van (doblar empuja); en la caja, el largo
 	# (acelerar/frenar empuja). Signos en Van: +X local = izquierda, +Z = adelante.
@@ -137,21 +156,22 @@ func _input(event: InputEvent) -> void:
 	# El arrastre de ítems se resuelve antes que la interfaz, porque puede terminar sobre una ventana.
 	var hand := local.hand
 	if hand.carrying == null:
-		# Ítem agarrado que sale del overlay (a una ventana, a un personaje o lejos) →
-		# pasa a arrastre universal. Va acá porque sobre una ventana la interfaz se come el evento.
+		# Ítem agarrado: sigue a la mano por toda la pantalla (también sobre ventanas, que se
+		# comen el evento; por eso va acá). Pasar sobre un personaje abre su ventana.
 		if hand.held is ItemNode and event is InputEventMouseMotion:
 			var ovm := active_overlay()
-			var node := hand.held as ItemNode
-			var p := ovm.screen_to_plane(event.position)
-			var outside := not node.surface.contains(p)
-			if windows.window_at(event.position) or not node.surface.contains(p, 1.5) 					or (outside and _character_at(event.position) != null):
-				_physics_to_carry(ovm, node, p)
+			ovm.hand_move(hand, ovm.screen_to_plane(event.position))
+			if windows.window_at(event.position) == null:
 				_hover_world(event.position)
-				return
-		# Soltar un ítem con física siempre llega, aunque el mouse esté sobre una ventana.
+		# Soltar: sobre una ventana que lo acepte → va a la ventana. Si no → física normal.
 		if hand.held is ItemNode and event is InputEventMouseButton 				and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 			var ov := active_overlay()
-			if ov:
+			var node := hand.held as ItemNode
+			var w := windows.window_at(event.position)
+			if w and w.can_accept(node.data, event.position):
+				ov.hand_release(hand, ov.screen_to_plane(event.position))
+				w.accept_drop(node.surface.take(node), event.position)
+			elif ov:
 				ov.hand_release(hand, ov.screen_to_plane(event.position))
 		return
 	if event is InputEventMouseMotion:
@@ -214,16 +234,6 @@ func begin_carry(item: ItemData, return_to: Callable) -> void:
 	_hover_opened.clear()
 	drag_layer.show_item(hand, item)
 	drag_layer.move_item(hand, get_viewport().get_mouse_position())
-
-## Un ítem con física que la mano saca afuera de su superficie → se lleva "en la mano"
-## para soltarlo en una ventana o en un personaje. Si no lo acepta nadie, vuelve.
-func _physics_to_carry(ov: Overlay, node: ItemNode, p: Vector2) -> void:
-	var hand := local.hand
-	ov.hand_release(hand, p)
-	var surface := node.surface
-	var last := node.local_center()
-	var item := surface.take(node)
-	begin_carry(item, func(it: ItemData) -> void: surface.spawn(it, last))
 
 func _carry_to_physics(s: ItemSurface, p: Vector2) -> void:
 	var hand := local.hand

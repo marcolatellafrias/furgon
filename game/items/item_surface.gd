@@ -23,6 +23,8 @@ static func to_px(l: Vector2) -> Vector2:
 static func from_px(p: Vector2) -> Vector2:
 	return Vector2(p.x, -p.y) / PX
 
+## Las paredes se arman al entrar al árbol con los límites que tenga en ese momento:
+## configurar x_min/x_max/floor_y/ceiling_y ANTES de agregarla al overlay.
 func _ready() -> void:
 	physics_root = Node2D.new()
 	physics_root.name = "Fisica_" + name

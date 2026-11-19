@@ -191,10 +191,15 @@ func _selftest_interaction() -> void:
 	_mouse_screen(s0 + Vector2(-48, -120), false)
 	await get_tree().physics_frame
 	print("[selftest] gaseosa tirada: vel=%s" % can.body.linear_velocity.round())
-	await _wait(0.25)
-	_shot("2b_gaseosa_volando")
-	await _wait(1.5)
-	print("[selftest] gaseosa: antes %s -> ahora %s, rotación %.0f°" % [c0, can.local_center(), rad_to_deg(can.rotation.z)])
+	var peak := -99.0
+	for i in 90:
+		await get_tree().physics_frame
+		peak = maxf(peak, can.local_center().y)
+		if i == 15:
+			_shot("2b_gaseosa_volando")
+	await _wait(1.0)
+	print("[selftest] gaseosa: salió de y=%.2f, llegó hasta y=%.2f, terminó en %s, rotación %.0f°, giro %.2f" % [
+		c0.y, peak, can.local_center(), rad_to_deg(can.rotation.z), can.body.angular_velocity])
 
 	# 4) Clic en el piso NO te baja; E sí. Después caminar a la caja de atrás
 	_mouse_screen(desktop.world_camera.unproject_position(van.to_global(Vector3(5, 0, 0))), true)
