@@ -132,8 +132,8 @@ func _selftest() -> void:
 	log.call("doblando a la derecha")
 	print("[selftest] inercia al doblar a la derecha, x en el tablero: ", dash_x_before, " -> ", _dash_xs())
 	_shot("1_manejando")
-	f["throttle"] = 0.0; f["brake"] = 1.0; f["clutch"] = 1.0
-	await _wait(2.5)
+	cabin.gear_lever.force_gear(0)   # punto muerto = frena sola
+	await _wait(3.0)
 	log.call("frenado")
 	f.clear()
 	await _selftest_interaction()

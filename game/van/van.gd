@@ -87,6 +87,21 @@ func door_point(seat: Marker3D) -> Vector3:
 func rear_point() -> Vector3:
 	return to_global(Vector3(0, 0.2, -3.7))
 
+## Camino para rodear la van caminando (sin atravesarla): agrega una esquina si hace falta.
+func route(from: Vector3, to: Vector3) -> Array[Vector3]:
+	var lf := to_local(from)
+	var lt := to_local(to)
+	var out: Array[Vector3] = []
+	var behind_from := lf.z < -2.6
+	var behind_to := lt.z < -2.6
+	if behind_from != behind_to:
+		var side := signf(lf.x if not behind_from else lt.x)
+		if side == 0.0:
+			side = 1.0
+		out.append(to_global(Vector3(side * 1.9, 0.2, -3.1)))
+	out.append(to)
+	return out
+
 func occupied_seats() -> int:
 	var n := 0
 	for s in seat_occupant:
@@ -159,6 +174,9 @@ func _physics_process(delta: float) -> void:
 		if c.gear != 0:
 			throttle = clampf((target - speed_in_gear) / 6.0, 0.0, 1.0) * (1.0 - clampf(c.brake * 2.0, 0.0, 1.0))
 			auto_brake = clampf((speed_in_gear - target - 2.0) / 12.0, 0.0, 0.35)
+		else:
+			throttle = 0.0
+			auto_brake = 0.45   # punto muerto = frenar hasta parar (no hay pedal de freno)
 	var accel := (linear_velocity - _prev_velocity) / delta
 	_prev_velocity = linear_velocity
 	local_accel = local_accel.lerp(global_basis.inverse() * accel, 0.25)

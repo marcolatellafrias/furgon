@@ -326,7 +326,8 @@ func go_to_cabin(p: Player) -> void:
 	if seat == null:
 		return
 	_leave_space(p)
-	p.character.walk_to(van.door_point(seat), func() -> void: _enter_cabin(p))
+	var ch := p.character
+	ch.walk_path(van.route(ch.global_position, van.door_point(seat)), func() -> void: _enter_cabin(p))
 
 func _enter_cabin(p: Player) -> void:
 	var seat := van.free_seat()
@@ -340,6 +341,7 @@ func go_to_cargo(p: Player) -> void:
 	if p.space == "cargo":
 		return
 	_leave_space(p)
-	p.character.walk_to(van.rear_point(), func() -> void:
+	var ch := p.character
+	ch.walk_path(van.route(ch.global_position, van.rear_point()), func() -> void:
 		if p.character.global_position.distance_to(van.rear_point()) < 1.5:
 			p.space = "cargo")

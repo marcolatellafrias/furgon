@@ -22,6 +22,7 @@ var held_item: ItemData = null:
 var seat: Marker3D = null     ## si no es null, está sentado ahí
 
 var _target := Vector3.ZERO
+var _path: Array[Vector3] = []
 var _walking := false
 var _on_arrive: Callable
 var _visual: Node3D
@@ -75,6 +76,9 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.y = 0.0
 	var flat := Vector3(_target.x - global_position.x, 0, _target.z - global_position.z)
+	if _walking and flat.length() < 0.25 and not _path.is_empty():
+		_target = _path.pop_front()
+		flat = Vector3(_target.x - global_position.x, 0, _target.z - global_position.z)
 	if _walking and flat.length() < 0.25:
 		_walking = false
 		var cb := _on_arrive
@@ -92,7 +96,12 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 func walk_to(point: Vector3, on_arrive := Callable()) -> void:
-	_target = point
+	walk_path([point], on_arrive)
+
+## Camina por varios puntos en orden; al llegar al último llama on_arrive.
+func walk_path(points: Array[Vector3], on_arrive := Callable()) -> void:
+	_path = points.duplicate()
+	_target = _path.pop_front()
 	_walking = true
 	_on_arrive = on_arrive
 

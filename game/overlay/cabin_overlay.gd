@@ -84,8 +84,8 @@ func build() -> void:
 		pedals[spec[0]] = p
 		if spec[0] == "clutch" and not c.clutch_enabled:
 			p.visible = false   # embrague automático: no hay pedal
-		if spec[0] == "throttle" and c.gear_sets_speed:
-			p.visible = false   # la marcha dicta la velocidad: no hay acelerador
+		if spec[0] != "clutch" and c.gear_sets_speed:
+			p.visible = false   # la marcha dicta la velocidad y N frena: no hay pedales
 		x += 0.75
 
 	# Guantera (todavía no se abre)

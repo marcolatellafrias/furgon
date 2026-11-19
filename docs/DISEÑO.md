@@ -53,7 +53,8 @@ se intenta expresar con estas.
 
 ## Decisiones tomadas (provisorias)
 - **Todo se maneja con el mouse.** Nada del tablero se usa con teclado (los pedales se arrastran).
-  Embrague automático por ahora (`VanControls.clutch_enabled = false`).
+  Por ahora **sin pedales**: la palanca dicta la velocidad (1ra 12, 2da 25, 3ra 40, 4ta 60, R 8 km/h)
+  y en punto muerto la van frena sola hasta parar (`VanControls.gear_sets_speed`, `clutch_enabled`).
 - **E = salir del espacio** (bajarse de la cabina / irse de la caja). Dentro de un espacio, hacer clic
   en el mundo no te saca; solo abre ventanas de personajes.
 - **Física de los ítems: agarrado no tiene física, suelto sí**, con la velocidad con que lo soltaste
