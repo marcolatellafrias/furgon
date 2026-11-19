@@ -68,6 +68,7 @@ se intenta expresar con estas.
   acelerar/frenar/doblar empuja los paquetes si supera el rozamiento. Lo que ves en el overlay es
   exactamente lo que hay en la van del mundo.
 - Con un overlay abierto, la cámara del mundo se corre para que tu personaje quede en la zona libre.
+- **Lo que tapa a tu personaje se vuelve transparente** (edificios, etc.: `OcclusionFader.make_fadeable`).
 - Pasar arrastrando sobre un personaje del mundo abre su ventana. Ventana de personaje: soltar comida
   en cualquier parte = comer; soltar en "Mano" = agarrarlo.
 - Sin conductor, la van queda con freno de mano. F2 (debug): cambia de jugador.

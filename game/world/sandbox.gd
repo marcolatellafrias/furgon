@@ -7,6 +7,7 @@ extends Node3D
 var van: Van
 var cabin: CabinOverlay
 var desktop: Desktop
+var fader: OcclusionFader
 
 func _ready() -> void:
 	randomize()
@@ -22,6 +23,14 @@ func _ready() -> void:
 	add_child(desktop)
 	desktop.setup(van, $IsoCamera, self)
 	cabin = desktop.cabin
+
+	# Lo que tape a tu personaje se vuelve transparente.
+	fader = OcclusionFader.new()
+	fader.camera = $IsoCamera
+	fader.targets = func() -> Array:
+		var p := desktop.local.character.global_position
+		return [p + Vector3.UP * 0.3, p + Vector3.UP * 1.4]
+	add_child(fader)
 
 	if "--selftest" in OS.get_cmdline_user_args():
 		_selftest()
@@ -72,6 +81,7 @@ func _static_box(size: Vector3, pos: Vector3, color: Color, collide := false) ->
 	m.material_override = mat
 	n.add_child(m)
 	if collide:
+		OcclusionFader.make_fadeable(n as StaticBody3D, m)
 		var col := CollisionShape3D.new()
 		var shape := BoxShape3D.new()
 		shape.size = size
@@ -229,7 +239,7 @@ func _selftest_interaction() -> void:
 		await _wait(0.2)
 		if p1.space == "cargo":
 			break
-	print("[selftest] J1 espacio='%s'  masa van=%.0f kg" % [p1.space, van.mass])
+	print("[selftest] J1 espacio='%s'  masa van=%.0f kg ; edificios desvanecidos: %d" % [p1.space, van.mass, fader.faded_count()])
 
 	# 4a) Soltar un paquete encima de otro (lugar inválido) → vuelve a su lugar
 	var bed := desktop.cargo.surface
