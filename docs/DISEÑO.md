@@ -61,6 +61,16 @@ se intenta expresar con estas.
   la pantalla), verde si se puede soltar ahí y rojo si no. Al soltar: sobre una ventana que lo acepta →
   ventana; en un lugar libre → física con la velocidad del mouse; en un lugar inválido (encima de algo,
   pared, afuera) → vuelve a donde estaba. Siempre existe una sola versión de cada ítem.
+- **Tablero:** de costado con gravedad; la zona física es toda la pantalla (lo que tirás vuela sobre el
+  mundo y cae). Lo del tablero NO se ve en el mundo (por ahora). Doblar empuja los objetos.
+- **La caja de atrás es overlay, vista desde arriba** (plano XZ de la van), horizontal, cabina a la
+  izquierda. Una sola capa (no se apila): si no hay lugar, hay que hacer lugar. Física 2D sin gravedad;
+  acelerar/frenar/doblar empuja los paquetes si supera el rozamiento. Lo que ves en el overlay es
+  exactamente lo que hay en la van del mundo.
+- Con un overlay abierto, la cámara del mundo se corre para que tu personaje quede en la zona libre.
+- Pasar arrastrando sobre un personaje del mundo abre su ventana. Ventana de personaje: soltar comida
+  en cualquier parte = comer; soltar en "Mano" = agarrarlo.
+- Sin conductor, la van queda con freno de mano. F2 (debug): cambia de jugador.
 - Ítems con medidas reales en metros (`ItemData.dims`); cada vista los escala (`units_per_meter`).
 - Contorno amarillo al pasar el mouse por lo que se puede usar en el mundo (personajes, cabina, caja).
 - Estilo: todo low poly moderado con sombreado suave (ver `game/core/lowpoly.gd`).
