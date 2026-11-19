@@ -1,0 +1,43 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://game/world/iso_camera.gd" id="1_cam"]
+[ext_resource type="Script" path="res://game/world/sandbox.gd" id="2_sb"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_g"]
+size = Vector2(200, 200)
+
+[sub_resource type="StandardMaterial3D" id="Mat_g"]
+albedo_color = Color(0.45, 0.5, 0.42, 1)
+
+[sub_resource type="BoxShape3D" id="Shape_g"]
+size = Vector3(200, 1, 200)
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.62, 0.74, 0.82, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.8, 0.8, 0.85, 1)
+ambient_light_energy = 0.5
+
+[node name="Sandbox" type="Node3D"]
+script = ExtResource("2_sb")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866, -0.354, 0.354, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 0, 10, 0)
+shadow_enabled = true
+
+[node name="Ground" type="StaticBody3D" parent="."]
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("PlaneMesh_g")
+surface_material_override/0 = SubResource("Mat_g")
+
+[node name="Collision" type="CollisionShape3D" parent="Ground"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+shape = SubResource("Shape_g")
+
+[node name="IsoCamera" type="Camera3D" parent="."]
+script = ExtResource("1_cam")
