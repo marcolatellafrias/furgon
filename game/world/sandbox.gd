@@ -221,9 +221,13 @@ func _selftest_interaction() -> void:
 	ek.pressed = true
 	Input.parse_input_event(ek)
 	await _wait(0.2)
-	_mouse_screen(desktop.world_camera.unproject_position(van.to_global(Vector3(5, 0, 0))), true)
-	_mouse_screen(Vector2.ZERO, false)
-	await _wait(2.0)
+	# Caminar con "WASD" (simulado): 1 s hacia la izquierda de la van
+	var before := ch.global_position
+	desktop.test_move = van.global_basis.x
+	await _wait(1.0)
+	desktop.test_move = Vector3.ZERO
+	print("[selftest] WASD: caminó %.1f m" % before.distance_to(ch.global_position))
+	await _wait(0.3)
 	print("[selftest] J1 espacio='%s' sentado=%s" % [p1.space, ch.seat != null])
 	# Afuera: la van no se ve por dentro y no se puede usar al J2 que está sentado
 	var j2_key := "char:%d" % p2.character.get_instance_id()

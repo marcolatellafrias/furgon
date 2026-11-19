@@ -24,6 +24,7 @@ var drag_layer: DragLayer
 var hands_layer: HandsLayer
 var windows: WindowManager
 
+var test_move := Vector3.ZERO   ## solo para el autotest: simula WASD
 var _hover_opened := {}   # entidades cuyas ventanas ya se abrieron en este arrastre
 var _hint: Label
 
@@ -122,7 +123,7 @@ func _space_hint() -> String:
 			return "todo con el mouse · E: bajarse"
 		"cargo":
 			return "arrastrá y tirá paquetes · E: irte"
-	return "clic en el piso: caminar · clic en la cabina: subir · clic en la caja: abrirla"
+	return "WASD: caminar · clic en la cabina: subir · clic en la caja: abrirla"
 
 # ---------------------------------------------------------------- input
 
@@ -178,6 +179,24 @@ func _can_drop_carry(item: ItemData, screen: Vector2) -> bool:
 	return false
 
 func _physics_process(_delta: float) -> void:
+	# Afuera, tu personaje camina con WASD, relativo a la cámara (W = arriba en la pantalla).
+	var ch := local.character
+	var dir := Vector3.ZERO
+	if local.space == "" and ch.seat == null:
+		var fwd := -world_camera.global_basis.z
+		fwd.y = 0.0
+		fwd = fwd.normalized()
+		var right := world_camera.global_basis.x
+		right.y = 0.0
+		right = right.normalized()
+		if Input.is_physical_key_pressed(KEY_W): dir += fwd
+		if Input.is_physical_key_pressed(KEY_S): dir -= fwd
+		if Input.is_physical_key_pressed(KEY_D): dir += right
+		if Input.is_physical_key_pressed(KEY_A): dir -= right
+		dir += test_move   # solo autotest
+	for p in players:
+		p.character.move_dir = dir.normalized() if p == local else Vector3.ZERO
+
 	# Inercia (fuerza que sienten los objetos, en ejes de pantalla de cada overlay).
 	# Van: +X local = izquierda, +Z = adelante.
 	# Tablero (de costado): x de pantalla = derecha de la van → doblar los empuja.
@@ -354,10 +373,7 @@ func _world_click(screen: Vector2) -> void:
 			go_to_cabin(local)
 		elif hit.collider == van.rear_zone:
 			go_to_cargo(local)
-		return
-	hit = _ray(screen, 1, false)
-	if hit:
-		walk(local, hit.position)
+	# El piso no se clickea: afuera se camina con WASD.
 
 func _ray(screen: Vector2, mask: int, areas: bool) -> Dictionary:
 	var from := world_camera.project_ray_origin(screen)

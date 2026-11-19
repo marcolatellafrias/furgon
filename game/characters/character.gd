@@ -26,6 +26,7 @@ var _path: Array[Vector3] = []
 var _walking := false
 var _on_arrive: Callable
 var _visual: Node3D
+var move_dir := Vector3.ZERO   ## caminar con teclado (WASD); cancela el caminar automático
 var _held_visual: Node3D
 
 func _ready() -> void:
@@ -85,7 +86,14 @@ func _physics_process(delta: float) -> void:
 		_on_arrive = Callable()
 		if cb.is_valid():
 			cb.call()
-	if _walking:
+	if move_dir.length() > 0.01:
+		_walking = false
+		_on_arrive = Callable()
+		_path.clear()
+		velocity.x = move_dir.x * SPEED
+		velocity.z = move_dir.z * SPEED
+		_visual.rotation.y = lerp_angle(_visual.rotation.y, atan2(move_dir.x, move_dir.z), 12.0 * delta)
+	elif _walking:
 		var dir := flat.normalized()
 		velocity.x = dir.x * SPEED
 		velocity.z = dir.z * SPEED

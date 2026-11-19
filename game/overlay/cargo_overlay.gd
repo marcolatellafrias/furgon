@@ -1,6 +1,7 @@
 class_name CargoOverlay
 extends Overlay
-## Overlay del espacio "caja de atrás", visto DESDE ARRIBA (plano XZ de la van), horizontal:
+## Overlay del espacio "caja de atrás", visto DESDE ARRIBA y ortográfico puro (sin ángulo),
+## en el plano XZ de la van, horizontal:
 ## la cabina queda a la izquierda y la puerta de atrás a la derecha.
 ## Los paquetes son una sola capa con física 2D sin gravedad; la inercia de la van los empuja.
 ## Lo que ves acá es exactamente lo que hay adentro de la van en el mundo.
@@ -24,6 +25,9 @@ static func to_van(o: Vector2) -> Vector2:
 	var z := BED_FRONT_Z - (o.x + half_len()) / UPM
 	var x := -(o.y - CENTER_Y) / UPM
 	return Vector2(x, z)
+
+func _init() -> void:
+	oblique = false
 
 func build() -> void:
 	world_focus_y = 2.2

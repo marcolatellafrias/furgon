@@ -5,6 +5,7 @@ extends Overlay
 ## No recibe input. Comparte cámara y vista oblicua con los overlays.
 
 var _visuals := {}   # Hand -> Node3D
+var flat_root: Node3D  ## sin ángulo, para ítems de la caja (vista desde arriba)
 var _style := {}     # Hand -> "view:upm"
 
 static var _ok_mat: StandardMaterial3D
@@ -13,6 +14,8 @@ static var _bad_mat: StandardMaterial3D
 func _ready() -> void:
 	layer = 50
 	super._ready()
+	flat_root = Node3D.new()
+	viewport.add_child(flat_root)
 	if _ok_mat == null:
 		_ok_mat = _tint_mat(Color(0.3, 1.0, 0.4, 0.35))
 		_bad_mat = _tint_mat(Color(1.0, 0.2, 0.2, 0.45))
@@ -30,7 +33,7 @@ func show_item(hand: Hand, item: ItemData, upm := 6.0, view := "side") -> void:
 		return
 	hide_item(hand)
 	var v := item.make_visual(upm, view)
-	root3d.add_child(v)
+	(flat_root if view == "top" else root3d).add_child(v)
 	_visuals[hand] = v
 	_style[hand] = key
 

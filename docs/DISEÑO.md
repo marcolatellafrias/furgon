@@ -55,6 +55,8 @@ se intenta expresar con estas.
 - **Todo se maneja con el mouse.** Nada del tablero se usa con teclado (los pedales se arrastran).
   Por ahora **sin pedales**: la palanca dicta la velocidad (1ra 12, 2da 25, 3ra 40, 4ta 60, R 8 km/h)
   y en punto muerto la van frena sola hasta parar (`VanControls.gear_sets_speed`, `clutch_enabled`).
+- **Afuera se camina con WASD** (relativo a la cámara). El piso no se clickea; clic en la cabina o la caja
+  te lleva caminando hasta ahí.
 - **E = salir del espacio** (bajarse de la cabina / irse de la caja). Dentro de un espacio, hacer clic
   en el mundo no te saca; solo abre ventanas de personajes.
 - **Agarrar y soltar (regla única):** agarrado = fantasma (sin física, no choca, sigue al mouse por toda
@@ -63,7 +65,7 @@ se intenta expresar con estas.
   pared, afuera) → vuelve a donde estaba. Siempre existe una sola versión de cada ítem.
 - **Tablero:** de costado con gravedad; la zona física es toda la pantalla (lo que tirás vuela sobre el
   mundo y cae). Lo del tablero NO se ve en el mundo (por ahora). Doblar empuja los objetos.
-- **La caja de atrás es overlay, vista desde arriba** (plano XZ de la van), horizontal, cabina a la
+- **La caja de atrás es overlay, vista desde arriba, ortográfica pura (sin ángulo)** (plano XZ), horizontal, cabina a la
   izquierda. Una sola capa (no se apila): si no hay lugar, hay que hacer lugar. Física 2D sin gravedad;
   acelerar/frenar/doblar empuja los paquetes si supera el rozamiento. Lo que ves en el overlay es
   exactamente lo que hay en la van del mundo.

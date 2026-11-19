@@ -14,6 +14,8 @@ const OBLIQUE_TOP := 0.45
 const OBLIQUE_SIDE := 0.0
 
 var space_id := ""
+## false = ortográfica pura de frente (sin el ángulo de la vista oblicua). La usa la caja de atrás.
+var oblique := true
 ## Dónde tiene que quedar el foco del mundo (tu personaje) con este overlay abierto,
 ## en unidades del overlay (Y: -5 abajo … +5 arriba). Así el overlay nunca lo tapa.
 var world_focus_y := 0.0
@@ -61,7 +63,7 @@ func _ready() -> void:
 	viewport.add_child(sun)
 
 	root3d = Node3D.new()
-	root3d.transform = Transform3D(oblique_basis(), Vector3.ZERO)
+	root3d.transform = Transform3D(oblique_basis() if oblique else Basis.IDENTITY, Vector3.ZERO)
 	viewport.add_child(root3d)
 	build()
 
@@ -80,6 +82,8 @@ func plane_to_screen(p: Vector2) -> Vector2:
 
 ## Punto del plano de pantalla → coordenadas locales de root3d a una profundidad z.
 func plane_to_local(p: Vector2, z: float) -> Vector2:
+	if not oblique:
+		return p
 	return Vector2(p.x + OBLIQUE_SIDE * z, p.y + OBLIQUE_TOP * z)
 
 # ---------------------------------------------------------------- contenido
