@@ -225,6 +225,14 @@ func _selftest_interaction() -> void:
 	_mouse_screen(Vector2.ZERO, false)
 	await _wait(2.0)
 	print("[selftest] J1 espacio='%s' sentado=%s" % [p1.space, ch.seat != null])
+	# Afuera: la van no se ve por dentro y no se puede usar al J2 que está sentado
+	var j2_key := "char:%d" % p2.character.get_instance_id()
+	var j2_screen := desktop.world_camera.unproject_position(p2.character.global_position + Vector3(0, 1.0, 0))
+	_mouse_screen(j2_screen, true)
+	_mouse_screen(j2_screen, false)
+	await _wait(0.6)
+	print("[selftest] afuera: paredes desvanecidas=%s ; clic en J2 sentado abre ventana=%s (tienen que ser false)" % [
+		van.interior.is_occupied(), desktop.windows.find_window(j2_key) != null])
 	var rear_screen := desktop.world_camera.unproject_position(van.to_global(Vector3(0, 1.7, -1.2)))
 	var mm := InputEventMouseMotion.new()
 	mm.position = rear_screen
@@ -240,6 +248,7 @@ func _selftest_interaction() -> void:
 		if p1.space == "cargo":
 			break
 	print("[selftest] J1 espacio='%s'  masa van=%.0f kg ; edificios desvanecidos: %d" % [p1.space, van.mass, fader.faded_count()])
+	print("[selftest] en la caja: paredes desvanecidas=%s (tiene que ser true)" % van.interior.is_occupied())
 
 	# 4a) Soltar un paquete encima de otro (lugar inválido) → vuelve a su lugar
 	var bed := desktop.cargo.surface

@@ -69,6 +69,8 @@ se intenta expresar con estas.
   exactamente lo que hay en la van del mundo.
 - Con un overlay abierto, la cámara del mundo se corre para que tu personaje quede en la zona libre.
 - **Lo que tapa a tu personaje se vuelve transparente** (edificios, etc.: `OcclusionFader.make_fadeable`).
+- **Las paredes de la van se desvanecen solo si vos estás adentro** (cabina o caja). Desde afuera no se
+  puede usar a un personaje que está adentro; desde adentro sí se puede usar a los de afuera.
 - Pasar arrastrando sobre un personaje del mundo abre su ventana. Ventana de personaje: soltar comida
   en cualquier parte = comer; soltar en "Mano" = agarrarlo.
 - Sin conductor, la van queda con freno de mano. F2 (debug): cambia de jugador.

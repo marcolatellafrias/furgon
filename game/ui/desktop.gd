@@ -107,10 +107,8 @@ func active_overlay() -> Overlay:
 func _process(_delta: float) -> void:
 	cabin.visible = local.space == "cabin"
 	cargo.visible = local.space == "cargo"
-	var inside := van.occupied_seats() > 0
-	for p in players:
-		inside = inside or p.space == "cargo"
-	van.interior.set_occupied(inside)
+	# Las paredes de la van se desvanecen solo si VOS estás en la cabina o en la caja.
+	van.interior.set_occupied(local.space != "")
 	world_camera.target = local.character
 	_update_lifted()
 	var ov := active_overlay()
@@ -303,9 +301,14 @@ func _hover_world(screen: Vector2) -> void:
 		_hover_opened[ch] = true
 		open_character_window(ch, screen)
 
+## Personaje bajo el mouse. Desde afuera no se puede usar a uno que está adentro de la van
+## (las paredes no se ven transparentes); desde adentro sí se puede usar a los de afuera.
 func _character_at(screen: Vector2) -> Character:
 	var hit := _ray(screen, 1 << (Character.LAYER_CHARACTERS - 1), false)
-	return hit.collider as Character if hit else null
+	var ch := hit.collider as Character if hit else null
+	if ch and ch.seat != null and local.space == "":
+		return null
+	return ch
 
 ## Qué se puede usar en el mundo bajo el mouse (para el contorno).
 func _world_target(screen: Vector2) -> Object:
@@ -339,13 +342,13 @@ func _outline(t: Object, on: bool) -> void:
 # ---------------------------------------------------------------- mundo
 
 func _world_click(screen: Vector2) -> void:
-	var hit := _ray(screen, 1 << (Character.LAYER_CHARACTERS - 1), false)
-	if hit and hit.collider is Character:
-		open_character_window(hit.collider, screen)
+	var ch := _character_at(screen)
+	if ch:
+		open_character_window(ch, screen)
 		return
 	if local.space != "":
 		return   # dentro de un espacio, el mundo no te saca (para eso está la E)
-	hit = _ray(screen, 1 << (Van.LAYER_ZONES - 1), true)
+	var hit := _ray(screen, 1 << (Van.LAYER_ZONES - 1), true)
 	if hit:
 		if hit.collider == van.cabin_zone:
 			go_to_cabin(local)
